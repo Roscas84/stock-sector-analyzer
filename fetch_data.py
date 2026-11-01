@@ -339,7 +339,18 @@ def fetch_company_data(ticker, sector_avg_pe):
             "dividendYield": dividend_yield_pct,
             "competitiveness": classify_competitiveness(info.get('marketCap', 0)),
             "debtTrend": debt_trend,  # ✅ AHORA REAL (antes hardcoded "down")
+            # ✅ NUEVOS CAMPOS: Price-to-Book + 52-Week High (para análisis de reversión)
+            "priceToBook": round(info.get('priceToBook', 0), 2),
+            "high52Week": round(info.get('fiftyTwoWeekHigh', 0), 2),
+            "low52Week": round(info.get('fiftyTwoWeekLow', 0), 2),
         }
+
+        # Calcular % caída desde máximo de 52 semanas
+        if company["high52Week"] > 0 and company["price"] > 0:
+            decline_pct = round(((company["high52Week"] - company["price"]) / company["high52Week"]) * 100, 2)
+            company["decline52Week"] = decline_pct  # Positivo si cayó (ej: 25 = cayó 25%)
+        else:
+            company["decline52Week"] = 0
 
         # ✅ VALIDAR DATOS (Nueva mejora: filtrar valores irracionales)
         company = validate_financial_metrics(company)

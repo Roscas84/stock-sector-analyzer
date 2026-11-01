@@ -21,6 +21,8 @@
     <script src="history-handler.js"></script>
     <!-- MEJORA #6: Exportación CSV/TXT -->
     <script src="export-handler.js"></script>
+    <!-- MEJORA #7: Análisis de Reversión (P/B + Caída 52w) -->
+    <script src="level2.5-handler.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -147,6 +149,14 @@
                         <button class="market-btn" onclick="selectMarket('USA')">🇺🇸 USA</button>
                     </div>
 
+                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">🔥 Oportunidades de Reversión</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Empresas con caída > 20% pero fundamentals sanos (compra barato)</p>
+                    <div class="market-grid">
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('Brazil')">🔥 Brasil</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('India')">🔥 India</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('USA')">🔥 USA</button>
+                    </div>
+
                     <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">📜 Ver Historial</h2>
                     <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Análisis guardados y comparativas</p>
                     <div class="market-grid">
@@ -162,6 +172,11 @@
         function selectMarket(market) {
             currentMarket = market;
             showAnalysis();
+        }
+
+        function showReversalOpportunities(market) {
+            currentMarket = market;
+            showReversalAnalysis(market);  // Llama a función en level2.5-handler.js
         }
 
         function showAnalysis() {
