@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Analyzer - DEBUG</title>
+    <script src="db-manager.js"></script>
+    <script src="filters.js"></script>
+    <script src="ui-common.js"></script>
+    <script src="level1-handler.js"></script>
+    <script src="level2-handler.js"></script>
+    <script src="level3-handler.js"></script>
+    <script src="history-handler.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: monospace;
+            background: #0f172a;
+            color: white;
+            overflow-x: hidden;
+        }
+        #debug { position: fixed; top: 0; left: 0; right: 0; background: #1e293b; border-bottom: 2px solid #ef4444; padding: 15px; max-height: 400px; overflow-y: auto; z-index: 10000; }
+        .debug-line { padding: 3px 0; font-size: 12px; }
+        .error { color: #ef4444; }
+        .success { color: #4ade80; }
+        .info { color: #60a5fa; }
+        #app { margin-top: 420px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div id="debug"></div>
+    <div id="app"></div>
+    <div id="modal" class="modal"></div>
+
+    <script>
+        const debugDiv = document.getElementById('debug');
+        const debugLines = [];
+
+        function addDebug(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `debug-line ${type}`;
+            line.textContent = msg;
+            debugDiv.appendChild(line);
+            debugLines.push(msg);
+            console.log(`[${type.toUpperCase()}] ${msg}`);
+        }
+
+        addDebug('🔍 INICIANDO DEBUG...', 'info');
+        addDebug('');
+
+        // Verificar módulos cargados
+        addDebug('Verificando módulos:', 'info');
+
+        if (typeof initDB === 'function') {
+            addDebug('  ✅ db-manager.js', 'success');
+        } else {
+            addDebug('  ❌ db-manager.js NO cargado', 'error');
+        }
+
+        if (typeof evaluateLevel1 === 'function') {
+            addDebug('  ✅ filters.js', 'success');
+        } else {
+            addDebug('  ❌ filters.js NO cargado', 'error');
+        }
+
+        if (typeof loadAppData === 'function') {
+            addDebug('  ✅ ui-common.js', 'success');
+        } else {
+            addDebug('  ❌ ui-common.js NO cargado', 'error');
+        }
+
+        if (typeof showMarketAnalysis === 'function') {
+            addDebug('  ✅ level1-handler.js', 'success');
+        } else {
+            addDebug('  ❌ level1-handler.js NO cargado', 'error');
+        }
+
+        if (typeof refineLevel2 === 'function') {
+            addDebug('  ✅ level2-handler.js', 'success');
+        } else {
+            addDebug('  ❌ level2-handler.js NO cargado', 'error');
+        }
+
+        if (typeof showRanking === 'function') {
+            addDebug('  ✅ level3-handler.js', 'success');
+        } else {
+            addDebug('  ❌ level3-handler.js NO cargado', 'error');
+        }
+
+        if (typeof showHistory === 'function') {
+            addDebug('  ✅ history-handler.js', 'success');
+        } else {
+            addDebug('  ❌ history-handler.js NO cargado', 'error');
+        }
+
+        addDebug('');
+
+        // Variables globales
+        let appData = null;
+        let currentMarket = null;
+        let filterLevel = 1;
+        let displayedCompanies = [];
+
+        // Cargar datos
+        async function loadData() {
+            try {
+                addDebug('Cargando data.json...', 'info');
+                const response = await fetch('./data.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                appData = await response.json();
+                addDebug(`✅ data.json cargado (${Object.keys(appData.markets).length} mercados)`, 'success');
+
+                // Verificar funciones globales
+                if (typeof window.showStart === 'function') {
+                    addDebug('✅ window.showStart disponible', 'success');
+                    window.showStart();
+                    addDebug('✅ showStart() ejecutada - deberías ver la app abajo', 'success');
+                } else {
+                    addDebug('❌ window.showStart NO disponible', 'error');
+                }
+            } catch (error) {
+                addDebug(`❌ Error: ${error.message}`, 'error');
+                document.getElementById('app').innerHTML = `<div style="padding:20px; color:#ef4444;"><h1>Error al cargar</h1><p>${error.message}</p></div>`;
+            }
+        }
+
+        // Funciones de evaluación locales (backup)
+        function evaluateLevel1(c) {
+            let passed = 0;
+            if (c.debtToEquity < 1.5) passed++;
+            if (c.netProfitMargin > 5) passed++;
+            if (c.revenueGrowthYoY > 5) passed++;
+            if (c.currentRatio > 1.0) passed++;
+            if (c.peRatio < c.sectorAvgPE) passed++;
+            return { passed: passed >= 4, score: Math.round((passed / 5) * 100) };
+        }
+
+        function evaluateLevel2(c) {
+            if (!c.level1Pass) return { passed: false, score: 0 };
+            let passed = 0;
+            let totalCriteria = 0;
+            if (c.roic > 0) {
+                if (c.roic > 10) passed++;
+                totalCriteria++;
+            }
+            if (c.operatingMarginTrend === 'up' || c.operatingMarginTrend === 'flat') passed++;
+            totalCriteria++;
+            if (c.freeCashFlow > 0) passed++;
+            totalCriteria++;
+            if (c.quickRatio > 0) {
+                if (c.quickRatio > 1.0) passed++;
+                totalCriteria++;
+            }
+            const requiredPassing = totalCriteria >= 4 ? 3 : 2;
+            return { passed: passed >= requiredPassing, score: Math.round((passed / Math.max(totalCriteria, 3)) * 100) };
+        }
+
+        function evaluateLevel3(c) {
+            let passed = 0;
+            if (c.roic > 10) passed++;
+            if (c.freeCashFlow > 0) passed++;
+            if (c.dividendYield > 1) passed++;
+            if (c.operatingMarginTrend === 'up') passed++;
+            if (c.debtTrend === 'down') passed++;
+            if (c.competitiveness === 'dominant' || c.competitiveness === 'strong') passed++;
+            return Math.round((passed / 6) * 100);
+        }
+
+        function getPEGRatio(c) {
+            return c.revenueGrowthYoY > 0 ? c.peRatio / c.revenueGrowthYoY : c.peRatio;
+        }
+
+        function getValuationStatus(peg) {
+            if (peg < 1.0) return '🟢 BARATA';
+            if (peg <= 2.0) return '🟡 JUSTA';
+            return '🔴 CARA';
+        }
+
+        // Iniciar
+        addDebug('Llamando loadData()...', 'info');
+        loadData();
+
+        // Capturar errores globales
+        window.addEventListener('error', (e) => {
+            addDebug(`❌ Error global: ${e.message}`, 'error');
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            addDebug(`❌ Promise rejection: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>
