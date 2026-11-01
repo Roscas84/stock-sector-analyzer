@@ -286,6 +286,127 @@ def validate_financial_metrics(metrics_dict):
 
     return metrics_dict
 
+def classify_business_cycle(company):
+    """
+    Clasifica la fase del ciclo de vida empresarial
+    Retorna: STARTUP / GROWTH / MATURE / DECLINE
+    """
+    growth = company.get('revenueGrowthYoY', 0)
+    margin = company.get('netProfitMargin', 0)
+    roic = company.get('roic', 0)
+
+    # STARTUP: Crecimiento alto pero márgenes negativos o bajos
+    if growth > 20 and margin < 5:
+        return "STARTUP"
+
+    # GROWTH: Crecimiento sano (5-20%) + márgenes positivos
+    if growth > 10 and margin > 5:
+        return "GROWTH"
+    elif growth > 5 and margin > 3:
+        return "GROWTH"
+
+    # MATURE: Crecimiento bajo (<5%) pero márgenes altos + ROIC sólido
+    if growth < 5 and margin > 10 and roic > 10:
+        return "MATURE"
+
+    # DECLINE: Crecimiento negativo o margen colapsando
+    if growth < 0 or margin < 0:
+        return "DECLINE"
+
+    # Default: STABLE
+    return "STABLE"
+
+def calculate_management_quality(company, sector_avg_margin=10):
+    """
+    Calcula Management Quality Score (0-100)
+    Basado en: Eficiencia operativa, rentabilidad vs sector, estabilidad
+    """
+    quality_score = 0
+
+    # 1. Margen neto vs sector = Eficiencia operativa
+    margin = company.get('netProfitMargin', 0)
+    if margin > (sector_avg_margin * 1.5):
+        quality_score += 30  # Mucho más eficiente que sector
+    elif margin > sector_avg_margin:
+        quality_score += 20  # Más eficiente
+    elif margin > (sector_avg_margin * 0.5):
+        quality_score += 10  # Comparable
+    # Si es menos: calidad baja
+
+    # 2. ROE consistente = Capacidad de crear valor
+    roic = company.get('roic', 0)
+    if roic > 15:
+        quality_score += 25  # Excelente
+    elif roic > 10:
+        quality_score += 15  # Bueno
+    elif roic > 5:
+        quality_score += 8   # Moderado
+
+    # 3. Deuda baja = Responsabilidad financiera
+    de = company.get('debtToEquity', 0)
+    if de < 0.5:
+        quality_score += 20  # Muy conservador
+    elif de < 1.0:
+        quality_score += 15  # Prudente
+    elif de < 1.5:
+        quality_score += 10  # Aceptable
+    # Si > 1.5: mala gestión
+
+    # 4. Free Cash Flow positivo = No está quemando dinero
+    fcf = company.get('freeCashFlow', 0)
+    if fcf > 0:
+        quality_score += 25  # Genera caja
+
+    return min(max(quality_score, 0), 100)
+
+def calculate_moat_score(company, sector_avg_growth=5):
+    """
+    Calcula Moat Score (0-100) - Ventaja competitiva duradera
+    Basado en: ROE, Margen, Tendencia de deuda, Crecimiento vs sector
+    """
+    moat_score = 0
+
+    # 1. ROE/ROIC alto = Moat financiero (Buffett lo ama)
+    # Empresas con ROE > 15% demuestran capacidad de ganar mucho con poco capital
+    roic = company.get('roic', 0)
+    if roic > 20:
+        moat_score += 35  # Excelente moat
+    elif roic > 15:
+        moat_score += 25  # Bueno
+    elif roic > 10:
+        moat_score += 15  # Moderado
+    elif roic > 5:
+        moat_score += 5   # Débil
+
+    # 2. Margen neto alto = Pricing Power (puede cobrar más que competencia)
+    margin = company.get('netProfitMargin', 0)
+    if margin > 20:
+        moat_score += 30  # Excelente (Apple, Microsoft)
+    elif margin > 15:
+        moat_score += 20  # Bueno
+    elif margin > 10:
+        moat_score += 10  # Moderado
+    elif margin > 5:
+        moat_score += 5   # Débil
+
+    # 3. Deuda bajando = Fortaleza (reinvierte en el negocio)
+    debt_trend = company.get('debtTrend', 'flat')
+    if debt_trend == 'down':
+        moat_score += 20  # Fortaleciendo posición
+    elif debt_trend == 'flat':
+        moat_score += 10  # Estable
+    # Si sube (-10 implícito): debilitando
+
+    # 4. Crecimiento > sector = Liderazgo de mercado
+    company_growth = company.get('revenueGrowthYoY', 0)
+    if company_growth > (sector_avg_growth * 2):
+        moat_score += 15  # Lidera significativamente
+    elif company_growth > sector_avg_growth:
+        moat_score += 10  # Mejor que promedio
+
+    # Clamping a 0-100
+    return min(max(moat_score, 0), 100)
+
 def fetch_company_data(ticker, sector_avg_pe):
     """Descarga datos de una empresa desde Yahoo Finance con fallbacks y validación"""
     try:
@@ -354,6 +475,15 @@ def fetch_company_data(ticker, sector_avg_pe):
 
         # ✅ VALIDAR DATOS (Nueva mejora: filtrar valores irracionales)
         company = validate_financial_metrics(company)
+
+        # ✅ CALCULAR MOAT SCORE (Ventaja competitiva - Buffett-style)
+        company["moatScore"] = calculate_moat_score(company)
+
+        # ✅ CALCULAR MANAGEMENT QUALITY SCORE (Eficiencia operativa)
+        company["managementScore"] = calculate_management_quality(company)
+
+        # ✅ CLASIFICAR CICLO DE VIDA EMPRESARIAL (Para contexto de inversión)
+        company["businessCycle"] = classify_business_cycle(company)
 
         print("✓")
         return company

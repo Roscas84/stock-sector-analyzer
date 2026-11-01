@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-01T12:40:29.721255",
+  "lastUpdated": "2026-11-01T12:53:01.241284",
   "currency": "USD",
   "markets": {
     "Brazil": {
@@ -28,7 +28,10 @@
           "priceToBook": 1.49,
           "high52Week": 26.39,
           "low52Week": 11.43,
-          "decline52Week": 16.45
+          "decline52Week": 16.45,
+          "moatScore": 90,
+          "managementScore": 95,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "VALE",
@@ -52,7 +55,10 @@
           "priceToBook": 1.25,
           "high52Week": 17.94,
           "low52Week": 11.06,
-          "decline52Week": 36.51
+          "decline52Week": 36.51,
+          "moatScore": 10,
+          "managementScore": 45,
+          "businessCycle": "DECLINE"
         },
         {
           "ticker": "ITUB",
@@ -76,7 +82,10 @@
           "priceToBook": 1.81,
           "high52Week": 10.2,
           "low52Week": 6.82,
-          "decline52Week": 30.1
+          "decline52Week": 30.1,
+          "moatScore": 90,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "BBDC",
@@ -100,7 +109,10 @@
           "priceToBook": 0.79,
           "high52Week": 9.54,
           "low52Week": 7.96,
-          "decline52Week": 9.33
+          "decline52Week": 9.33,
+          "moatScore": 45,
+          "managementScore": 73,
+          "businessCycle": "DECLINE"
         },
         {
           "ticker": "ABEV",
@@ -124,7 +136,10 @@
           "priceToBook": 2.27,
           "high52Week": 3.45,
           "low52Week": 2.28,
-          "decline52Week": 22.9
+          "decline52Week": 22.9,
+          "moatScore": 55,
+          "managementScore": 100,
+          "businessCycle": "MATURE"
         },
         {
           "ticker": "EBR",
@@ -148,7 +163,10 @@
           "priceToBook": 0,
           "high52Week": 0,
           "low52Week": 0,
-          "decline52Week": 0
+          "decline52Week": 0,
+          "moatScore": 10,
+          "managementScore": 20,
+          "businessCycle": "STABLE"
         },
         {
           "ticker": "GGB",
@@ -172,7 +190,10 @@
           "priceToBook": 0.84,
           "high52Week": 5.48,
           "low52Week": 3.14,
-          "decline52Week": 14.96
+          "decline52Week": 14.96,
+          "moatScore": 10,
+          "managementScore": 45,
+          "businessCycle": "STABLE"
         }
       ]
     },
@@ -202,7 +223,10 @@
           "priceToBook": 9.84,
           "high52Week": 30.0,
           "low52Week": 10.12,
-          "decline52Week": 58.17
+          "decline52Week": 58.17,
+          "moatScore": 65,
+          "managementScore": 100,
+          "businessCycle": "MATURE"
         },
         {
           "ticker": "TCS",
@@ -226,7 +250,10 @@
           "priceToBook": 0,
           "high52Week": 0,
           "low52Week": 0,
-          "decline52Week": 0
+          "decline52Week": 0,
+          "moatScore": 10,
+          "managementScore": 20,
+          "businessCycle": "STABLE"
         },
         {
           "ticker": "HDB",
@@ -250,7 +277,10 @@
           "priceToBook": 8.83,
           "high52Week": 37.35,
           "low52Week": 21.36,
-          "decline52Week": 40.62
+          "decline52Week": 40.62,
+          "moatScore": 70,
+          "managementScore": 65,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "IBN",
@@ -274,7 +304,10 @@
           "priceToBook": 2.55,
           "high52Week": 31.78,
           "low52Week": 25.08,
-          "decline52Week": 7.33
+          "decline52Week": 7.33,
+          "moatScore": 80,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "WIT",
@@ -298,7 +331,10 @@
           "priceToBook": 2.54,
           "high52Week": 3.09,
           "low52Week": 1.59,
-          "decline52Week": 30.1
+          "decline52Week": 30.1,
+          "moatScore": 55,
+          "managementScore": 90,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "RDY",
@@ -322,7 +358,10 @@
           "priceToBook": 17.26,
           "high52Week": 15.67,
           "low52Week": 11.36,
-          "decline52Week": 9.57
+          "decline52Week": 9.57,
+          "moatScore": 20,
+          "managementScore": 38,
+          "businessCycle": "DECLINE"
         },
         {
           "ticker": "SIFY",
@@ -346,7 +385,10 @@
           "priceToBook": 4.49,
           "high52Week": 17.85,
           "low52Week": 10.09,
-          "decline52Week": 30.31
+          "decline52Week": 30.31,
+          "moatScore": 25,
+          "managementScore": 20,
+          "businessCycle": "STARTUP"
         }
       ]
     },
@@ -376,7 +418,10 @@
           "priceToBook": 46.82,
           "high52Week": 351.73,
           "low52Week": 243.42,
-          "decline52Week": 2.02
+          "decline52Week": 2.02,
+          "moatScore": 55,
+          "managementScore": 70,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "MSFT",
@@ -400,7 +445,10 @@
           "priceToBook": 8.24,
           "high52Week": 551.15,
           "low52Week": 349.2,
-          "decline52Week": 5.31
+          "decline52Week": 5.31,
+          "moatScore": 90,
+          "managementScore": 100,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "GOOGL",
@@ -424,7 +472,10 @@
           "priceToBook": 5.22,
           "high52Week": 408.61,
           "low52Week": 270.7,
-          "decline52Week": 31.51
+          "decline52Week": 31.51,
+          "moatScore": 90,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "AMZN",
@@ -448,7 +499,10 @@
           "priceToBook": 4.23,
           "high52Week": 287.2,
           "low52Week": 196.0,
-          "decline52Week": 16.31
+          "decline52Week": 16.31,
+          "moatScore": 80,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "NVDA",
@@ -472,7 +526,10 @@
           "priceToBook": 21.58,
           "high52Week": 243.37,
           "low52Week": 164.27,
-          "decline52Week": 15.91
+          "decline52Week": 15.91,
+          "moatScore": 55,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "TSLA",
@@ -496,7 +553,10 @@
           "priceToBook": 17.7,
           "high52Week": 498.83,
           "low52Week": 297.38,
-          "decline52Week": 19.85
+          "decline52Week": 19.85,
+          "moatScore": 10,
+          "managementScore": 45,
+          "businessCycle": "DECLINE"
         },
         {
           "ticker": "META",
@@ -520,7 +580,10 @@
           "priceToBook": 5.77,
           "high52Week": 779.82,
           "low52Week": 520.26,
-          "decline52Week": 21.14
+          "decline52Week": 21.14,
+          "moatScore": 90,
+          "managementScore": 100,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "JPM",
@@ -544,7 +607,10 @@
           "priceToBook": 2.55,
           "high52Week": 366.5,
           "low52Week": 279.1,
-          "decline52Week": 8.04
+          "decline52Week": 8.04,
+          "moatScore": 80,
+          "managementScore": 75,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "JNJ",
@@ -568,7 +634,10 @@
           "priceToBook": 8.07,
           "high52Week": 282.02,
           "low52Week": 185.12,
-          "decline52Week": 3.13
+          "decline52Week": 3.13,
+          "moatScore": 65,
+          "managementScore": 95,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "XOM",
@@ -592,7 +661,10 @@
           "priceToBook": 2.87,
           "high52Week": 188.5,
           "low52Week": 112.51,
-          "decline52Week": 0.66
+          "decline52Week": 0.66,
+          "moatScore": 60,
+          "managementScore": 90,
+          "businessCycle": "GROWTH"
         },
         {
           "ticker": "WMT",
@@ -616,7 +688,10 @@
           "priceToBook": 9.99,
           "high52Week": 135.16,
           "low52Week": 98.88,
-          "decline52Week": 8.62
+          "decline52Week": 8.62,
+          "moatScore": 55,
+          "managementScore": 65,
+          "businessCycle": "STABLE"
         }
       ]
     }
