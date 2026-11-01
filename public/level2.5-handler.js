@@ -103,7 +103,7 @@ window.showReversalAnalysis = function(market) {
      * Pantalla de análisis de reversión
      * Muestra solo empresas que son oportunidades de compra
      */
-    if (!appData || !appData[market]) {
+    if (!appData || !appData.markets || !appData.markets[market]) {
         document.getElementById('app').innerHTML = `
             <div class="container">
                 <h1 style="color: #ef4444;">❌ Sin datos</h1>
@@ -114,7 +114,7 @@ window.showReversalAnalysis = function(market) {
         return;
     }
 
-    const companies = appData[market];
+    const companies = appData.markets[market].companies;
     const opportunities = filterByReversalOpportunity(companies);
 
     let html = `
