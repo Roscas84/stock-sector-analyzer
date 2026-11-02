@@ -1,675 +1,661 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stock Analyzer</title>
-    <!-- PWA Meta Tags -->
-    <meta name="description" content="Análisis masivo de acciones por sectores con filtrado inteligente" />
-    <meta name="theme-color" content="#059669" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Stock Analyzer" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="msapplication-TileColor" content="#059669" />
-    <meta name="msapplication-config" content="/browserconfig.xml" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23059669' width='100' height='100'/><text x='50' y='60' font-size='60' fill='white' text-anchor='middle'>📊</text></svg>" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23059669' width='180' height='180' rx='40'/><text x='90' y='105' font-size='90' fill='white' text-anchor='middle'>📊</text></svg>" />
-    <!-- MEJORA #5: Historial IndexedDB -->
-    <script src="db-manager.js"></script>
-    <script src="history-handler.js"></script>
-    <!-- MEJORA #6: Exportación CSV/TXT -->
-    <script src="export-handler.js"></script>
-    <!-- MEJORA #7: Análisis de Reversión (P/B + Caída 52w) -->
-    <script src="level2.5-handler.js"></script>
-    <!-- MEJORA #8: Estrategias de Inversión (Graham, Lynch, Buffett) -->
-    <script src="level2.3-handler.js"></script>
-    <script src="level2.7-handler.js"></script>
-    <script src="level3.5-handler.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analyzer Pro</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: white;
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: white; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+        h1 { color: #4ade80; font-size: 28px; margin-bottom: 8px; }
+        h2 { color: #60a5fa; font-size: 16px; margin: 20px 0 10px 0; }
+        p { color: #cbd5e1; font-size: 13px; margin: 8px 0; }
+        button { background: #10b981; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-weight: 600; font-size: 14px; transition: 0.2s; }
+        button:hover { background: #059669; transform: translateY(-1px); }
+        .market-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+
+        /* MODAL */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; max-width: 600px; max-height: 80vh; overflow-y: auto; border: 1px solid #334155; }
+        .modal-content h3 { color: #4ade80; font-size: 24px; margin-bottom: 15px; }
+        .modal-content p { color: #cbd5e1; line-height: 1.6; margin: 10px 0; }
+        .close-btn { float: right; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+        .close-btn:hover { color: #cbd5e1; }
+
+        /* INFO ICON */
+        .info-icon { display: inline-block; width: 18px; height: 18px; background: #60a5fa; color: white; border-radius: 50%; text-align: center; line-height: 18px; font-size: 12px; font-weight: bold; cursor: pointer; margin-left: 5px; }
+        .info-icon:hover { background: #3b82f6; }
+
+        .consensus-header { padding: 12px; border-radius: 8px; margin: 20px 0 10px 0; border-left: 4px solid; font-weight: 700; }
+        .consensus-3 { background: #064e3b; border-color: #10b981; color: #6ee7b7; }
+        .consensus-2 { background: #78350f; border-color: #f59e0b; color: #fcd34d; }
+        .consensus-1 { background: #7c2d12; border-color: #ea580c; color: #fdba74; }
+
+        .company-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 12px 0; transition: 0.3s; }
+        .company-card:hover { background: #334155; border-color: #60a5fa; }
+
+        .company-badge { display: inline-block; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-weight: 700; font-size: 12px; }
+        .badge-3 { background: #1e3a2f; color: #6ee7b7; }
+        .badge-2 { background: #3a2a1a; color: #fcd34d; }
+        .badge-1 { background: #3a2a1a; color: #fdba74; }
+
+        .company-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .company-name h3 { color: #4ade80; font-size: 18px; margin: 0; }
+        .company-name p { color: #94a3b8; font-size: 12px; margin: 4px 0 0 0; }
+        .company-ticker { background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; height: fit-content; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin: 12px 0; }
+        .metric { background: #0f172a; padding: 10px; border-radius: 6px; border-left: 3px solid #60a5fa; cursor: pointer; transition: 0.2s; }
+        .metric:hover { background: #334155; }
+        .metric-label { color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
+        .metric-value { color: #4ade80; font-size: 16px; font-weight: 700; }
+
+        .divider { height: 1px; background: #334155; margin: 12px 0; }
+
+        .strategies { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .strategy-badge { padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .strategy-badge:hover { transform: translateY(-2px); }
+        .lynch-badge { background: #10b981; color: white; }
+        .graham-badge { background: #f59e0b; color: white; }
+        .buffett-badge { background: #8b5cf6; color: white; }
+        .greenblatt-badge { background: #f59e0b; color: white; }
+        .fisher-badge { background: #06b6d4; color: white; }
+
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            h1 { font-size: 24px; }
+            .modal-content { max-width: 90%; padding: 20px; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { color: #4ade80; font-size: 32px; margin-bottom: 10px; }
-        h2 { color: #60a5fa; font-size: 18px; margin: 20px 0 10px 0; }
-        p { color: #cbd5e1; font-size: 14px; margin: 10px 0; }
-        
-        .company-card {
-            background: #1e293b;
-            border-left: 3px solid #60a5fa;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 6px;
-            cursor: pointer;
+
+        @media (max-width: 480px) {
+            .company-header { flex-direction: column; }
+            .metrics-grid { grid-template-columns: 1fr; }
+            .strategies { flex-direction: column; }
         }
-        .company-card:hover { background: #334155; }
-        
-        .company-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .ticker { font-weight: bold; color: #4ade80; font-size: 16px; }
-        
-        button {
-            background: #10b981;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            margin: 10px 5px;
-        }
-        button:hover { background: #059669; }
-        .market-btn { background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px; font-size: 16px; }
-        .market-btn:hover { opacity: 0.9; }
-        
-        .start-screen { text-align: center; padding: 40px; }
-        .market-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 30px 0; }
-        
-        .summary-box {
-            background: #1e293b;
-            border-left: 4px solid #10b981;
-            padding: 15px;
-            margin: 20px 0;
-            color: #4ade80;
-            font-weight: 600;
-        }
-        
-        .divider { height: 1px; background: #334155; margin: 20px 0; }
+
+        /* SPLASH SCREEN */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        #splash.hidden { display: none; }
+        .splash-content { text-align: center; max-width: 500px; padding: 40px; }
+        .splash-title { font-size: 36px; color: #4ade80; margin-bottom: 10px; font-weight: 700; }
+        .splash-subtitle { font-size: 18px; color: #cbd5e1; margin-bottom: 30px; }
+        .splash-stats { background: #334155; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: left; }
+        .splash-stat { color: #cbd5e1; margin: 8px 0; font-size: 14px; }
+        .splash-stat strong { color: #4ade80; }
+        .progress-bar { width: 100%; height: 8px; background: #1e293b; border-radius: 4px; margin: 20px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #4ade80); width: 0%; transition: width 0.3s; border-radius: 4px; }
+        .splash-btn { background: #10b981; color: white; padding: 16px 32px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 16px; margin: 10px; transition: 0.3s; }
+        .splash-btn:hover:not(:disabled) { background: #059669; transform: translateY(-2px); }
+        .splash-btn:disabled { background: #64748b; cursor: not-allowed; opacity: 0.6; }
+        .splash-status { color: #94a3b8; font-size: 12px; margin-top: 15px; min-height: 20px; }
     </style>
 </head>
 <body>
-    <div id="app"></div>
-    <div id="modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
-        <div style="background:#1e293b; padding:30px; border-radius:8px; max-width:600px; max-height:80vh; overflow-y:auto; border:1px solid #334155;">
-            <div id="modal-content"></div>
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+        <div class="splash-content">
+            <div class="splash-title">📊 Stock Sector Analyzer</div>
+            <div class="splash-subtitle">Cargando datos de bolsas de valores...</div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="text-align: center; color: #4ade80; font-weight: 600; margin-top: 5px;" id="progressPercent">0%</div>
+
+            <div class="splash-stats">
+                <div class="splash-stat">🇺🇸 USA: <strong>500 empresas (S&P 500)</strong></div>
+                <div class="splash-stat">🇧🇷 Brasil: <strong>84 empresas (Bovespa)</strong></div>
+                <div class="splash-stat">🇮🇳 India: <strong>50 empresas (Nifty 50)</strong></div>
+                <div class="splash-stat" style="border-top: 1px solid #475569; padding-top: 10px; margin-top: 10px;">Total: <strong>634 empresas</strong></div>
+            </div>
+
+            <button class="splash-btn" id="updateBtn" onclick="loadData()">🔄 ACTUALIZAR DATOS AHORA</button>
+
+            <div class="splash-status" id="splashStatus"></div>
         </div>
     </div>
 
+    <div id="app"></div>
+
+    <!-- Modal de Explicaciones -->
+    <div id="explainModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DESCRIPCIÓN DE EMPRESA -->
+    <div id="companyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeCompanyModal()">&times;</span>
+            <h3 id="companyTitle" style="color: #4ade80; margin-bottom: 15px;"></h3>
+            <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #60a5fa; margin-bottom: 20px;">
+                <p id="companyDescription" style="color: #cbd5e1; line-height: 1.6; margin: 0;"></p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 5px 0;">Sector</p>
+                    <p id="companySector" style="color: #4ade80; font-weight: bold; font-size: 16px; margin: 0;"></p>
+                </div>
+                <div>
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0 0 5px 0;">País</p>
+                    <p id="companyCountry" style="color: #60a5fa; font-weight: bold; font-size: 16px; margin: 0;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="level3.5-handler.js"></script>
+    <script src="level2.7-handler.js"></script>
+    <script src="level2.8-handler.js"></script>
+    <script src="level2.9-handler.js"></script>
+
     <script>
-        let appData = null;
-        let currentMarket = null;
-        let displayedCompanies = [];
+        window.appData = null;
 
-        function evaluateLevel1(c) {
-            let passed = 0;
-            if (c.debtToEquity < 1.5) passed++;
-            if (c.netProfitMargin > 5) passed++;
-            if (c.revenueGrowthYoY > 5) passed++;
-            if (c.currentRatio > 1.0) passed++;
-            if (c.peRatio < c.sectorAvgPE) passed++;
-            return { passed: passed >= 4, score: Math.round((passed / 5) * 100) };
+        const explanations = {
+            strategies: {
+                buffett: {
+                    title: "📈 Warren Buffett - Análisis Profundo",
+                    content: `
+                        <p><strong>¿Quién fue?</strong> Warren Buffett es uno de los inversores más exitosos del mundo, conocido por buscar empresas con ventajas competitivas duraderas.</p>
+
+                        <p><strong>Su estrategia:</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li><strong>Moat (Foso):</strong> Busca empresas con ventajas duraderas que compiten ganador (ROE alto, márgenes altos)</li>
+                            <li><strong>Management excelente:</strong> Directivos que usan eficientemente el capital</li>
+                            <li><strong>Fase de crecimiento:</strong> Prefiere empresas en crecimiento pero con fundamentos sólidos</li>
+                        </ul>
+
+                        <p><strong>¿Por qué funciona?</strong> Las empresas con moat mantienen ventajas durante años, generando ganancias consistentes.</p>
+
+                        <p><strong>Score:</strong> 0-100. Score >= 65 es recomendable para compra.</p>
+                    `
+                },
+                lynch: {
+                    title: "🚀 Peter Lynch - GARP",
+                    content: `
+                        <p><strong>¿Quién fue?</strong> Peter Lynch dirigió uno de los fondos más exitosos de la historia, conocido por invertir en empresas en crecimiento a precios justos.</p>
+
+                        <p><strong>Su estrategia: GARP (Growth At Reasonable Price)</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>Busca empresas que <strong>crecen rápido</strong> pero <strong>no están caras</strong></li>
+                            <li>Usa el <strong>PEG Ratio</strong> para identificar buen valor</li>
+                            <li>Evita empresas sobrevaluadas aunque crezcan</li>
+                        </ul>
+
+                        <p><strong>PEG Ratio:</strong> P/E ÷ Tasa de Crecimiento</p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>< 1.0 = 🚀 IDEAL (barato + crecimiento)</li>
+                            <li>1.0-1.5 = ✅ BUENO (precio justo)</li>
+                            <li>> 1.5 = ⚠️ CARO (sobrevalorado)</li>
+                        </ul>
+                    `
+                },
+                greenblatt: {
+                    title: "💎 Joel Greenblatt - Magic Formula",
+                    content: `
+                        <p><strong>¿Quién fue?</strong> Joel Greenblatt es un gestor de fondos que creó una fórmula sistemática para invertir en empresas que son simultáneamente baratas Y de buena calidad.</p>
+
+                        <p><strong>Su estrategia: Magic Formula (Fórmula Mágica)</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>Busca empresas con <strong>P/E bajo</strong> (precio barato)</li>
+                            <li>Que también tengan <strong>ROI alto</strong> (buena calidad)</li>
+                            <li>Combina VALOR + CALIDAD en una sola estrategia</li>
+                        </ul>
+
+                        <p><strong>¿Por qué funciona?</strong> Evita empresas baratas que son malas negocios, y evita empresas caras aunque sean buenas.</p>
+
+                        <p><strong>Criterios:</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>P/E < 15 (valor)</li>
+                            <li>ROI (ROE) > 15% (calidad)</li>
+                            <li>Score >= 60</li>
+                        </ul>
+                    `
+                },
+                fisher: {
+                    title: "🌟 Philip Fisher - Quality Growth",
+                    content: `
+                        <p><strong>¿Quién fue?</strong> Philip Fisher fue mentor de Warren Buffett. Su enfoque: invertir en empresas EXCELENTES con management EXCELENTE, no solo empresas baratas.</p>
+
+                        <p><strong>Su estrategia: Quality Growth (Crecimiento de Calidad)</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>Busca <strong>management de excelente calidad</strong></li>
+                            <li>Empresas con <strong>crecimiento sostenible</strong> (5-40% anual)</li>
+                            <li>Margen alto + Deuda baja + Free Cash Flow positivo</li>
+                        </ul>
+
+                        <p><strong>Diferencia clave:</strong> Fisher paga un PRECIO JUSTO por una empresa EXCELENTE. No busca gangas, busca empresas con "moat" (ventaja competitiva sostenible).</p>
+
+                        <p><strong>Criterios:</strong></p>
+                        <ul style="margin: 10px 0 10px 20px; color: #cbd5e1;">
+                            <li>ROE >= 15%</li>
+                            <li>Margen Neto >= 10%</li>
+                            <li>Deuda/Equity < 1.0</li>
+                            <li>Crecimiento 5-40% anual</li>
+                            <li>Score >= 60</li>
+                        </ul>
+                    `
+                }
+            },
+            metrics: {
+                price: {
+                    title: "💵 Precio",
+                    content: `<p><strong>¿Qué es?</strong> El precio actual de una acción en el mercado.</p>
+                              <p><strong>¿Por qué importa?</strong> Es el punto de partida para calcular otros indicadores como P/E.</p>`
+                },
+                pe: {
+                    title: "P/E Ratio (Relación Precio-Ganancia)",
+                    content: `<p><strong>¿Qué es?</strong> Precio ÷ Ganancia por acción. Cuántos dólares pagas por cada $1 de ganancia anual.</p>
+                              <p><strong>Ejemplo:</strong> P/E 20 = Pagas $20 por cada $1 que la empresa gana.</p>
+                              <p><strong>¿Cómo interpretarlo?</strong></p>
+                              <ul style="margin: 10px 0 10px 20px;">
+                                <li>P/E bajo (10-15) = Posiblemente barato</li>
+                                <li>P/E alto (40+) = Posiblemente caro o crece mucho</li>
+                              </ul>
+                              <p><strong>⚠️ Nota:</strong> P/E alto puede estar justificado si la empresa crece rápido.</p>`
+                },
+                margen: {
+                    title: "Margen Neto (Net Profit Margin)",
+                    content: `<p><strong>¿Qué es?</strong> De cada $100 en ventas, cuánto queda como ganancia después de todos los gastos.</p>
+                              <p><strong>Fórmula:</strong> (Ganancia Neta ÷ Ventas) × 100</p>
+                              <p><strong>Ejemplo:</strong> Margen 20% = De $100 en ventas, la empresa gana $20.</p>
+                              <p><strong>¿Por qué importa?</strong> Margen alto = La empresa es eficiente y tiene poder de precios.</p>
+                              <p><strong>Comparar:</strong> Una farmacéutica con margen 40% vs. una tienda con margen 5%. Ambas pueden ser buenas, pero tienen modelos diferentes.</p>`
+                },
+                crecimiento: {
+                    title: "Crecimiento (YoY Revenue Growth)",
+                    content: `<p><strong>¿Qué es?</strong> Cuánto crecieron las ventas comparado al año anterior.</p>
+                              <p><strong>Fórmula:</strong> ((Ventas Año 2 - Ventas Año 1) ÷ Ventas Año 1) × 100</p>
+                              <p><strong>Ejemplo:</strong> Crecimiento 15% = La empresa vendió 15% más que el año pasado.</p>
+                              <p><strong>¿Por qué importa?</strong></p>
+                              <ul style="margin: 10px 0 10px 20px;">
+                                <li>Crecimiento > 10% = Empresa dinámica, probablemente buena oportunidad</li>
+                                <li>Crecimiento < 5% = Empresa madura, crece lentamente</li>
+                                <li>Crecimiento negativo = Empresa en problemas</li>
+                              </ul>`
+                },
+                de: {
+                    title: "D/E Ratio (Deuda/Equity)",
+                    content: `<p><strong>¿Qué es?</strong> Cuánta deuda tiene la empresa comparada a su patrimonio.</p>
+                              <p><strong>Fórmula:</strong> Deuda Total ÷ Patrimonio</p>
+                              <p><strong>Ejemplo:</strong> D/E 0.5 = Por cada $1 de patrimonio, la empresa debe $0.50.</p>
+                              <p><strong>¿Cómo interpretarlo?</strong></p>
+                              <ul style="margin: 10px 0 10px 20px;">
+                                <li>D/E < 0.5 = Muy segura (baja deuda)</li>
+                                <li>D/E 0.5-1.5 = Moderada (deuda controlada)</li>
+                                <li>D/E > 2.0 = Riesgosa (mucha deuda)</li>
+                              </ul>
+                              <p><strong>⚠️ Nota:</strong> D/E alto puede ser problemático en crisis económicas.</p>`
+                },
+                dividendo: {
+                    title: "Dividend Yield (Rendimiento de Dividendos)",
+                    content: `<p><strong>¿Qué es?</strong> Porcentaje de ganancias que la empresa reparte a accionistas cada año.</p>
+                              <p><strong>Fórmula:</strong> (Dividendo Anual ÷ Precio de la Acción) × 100</p>
+                              <p><strong>Ejemplo:</strong> Dividend 4% = Por cada $100 invertidos, recibes $4 al año en dividendos.</p>
+                              <p><strong>¿Por qué importa?</strong> Ingresos pasivos sin vender la acción.</p>
+                              <p><strong>Comparar:</strong> Tasa de interés del banco (0.1-1%) vs. dividendo (3-6%). Mucho mejor.</p>`
+                },
+                roe: {
+                    title: "ROE (Return On Equity)",
+                    content: `<p><strong>¿Qué es?</strong> Cuánta ganancia genera la empresa por cada $1 de patrimonio invertido.</p>
+                              <p><strong>Fórmula:</strong> (Ganancia Neta ÷ Patrimonio) × 100</p>
+                              <p><strong>Ejemplo:</strong> ROE 20% = La empresa genera $0.20 de ganancia por cada $1 de capital.</p>
+                              <p><strong>¿Por qué importa?</strong> ROE alto = Management eficiente con decisiones inteligentes.</p>
+                              <p><strong>Comparar:</strong> ROE 15% es excelente. ROE 5% significa que el dinero no está siendo usado bien.</p>`
+                },
+                fcf: {
+                    title: "FCF (Free Cash Flow - Flujo de Caja Libre)",
+                    content: `<p><strong>¿Qué es?</strong> El dinero REAL que la empresa genera después de gastos operativos e inversiones.</p>
+                              <p><strong>¿Por qué es importante?</strong> No es ganancia contable, es dinero que la empresa puede usar para:</p>
+                              <ul style="margin: 10px 0 10px 20px;">
+                                <li>Pagar dividendos</li>
+                                <li>Pagar deuda</li>
+                                <li>Invertir en crecimiento</li>
+                                <li>Recomprar acciones</li>
+                              </ul>
+                              <p><strong>⚠️ Rojo flag:</strong> Si FCF es negativo, algo está mal. La empresa quema dinero.</p>
+                              <p><strong>Verificación:</strong> FCF > 0 = La empresa es saludable.</p>`
+                }
+            }
+        };
+
+        function openModal(type, key) {
+            const data = explanations[type][key];
+            const modal = document.getElementById('explainModal');
+            const body = document.getElementById('modalBody');
+            body.innerHTML = `<h3>${data.title}</h3>${data.content}`;
+            modal.classList.add('show');
         }
 
-        function evaluateLevel2(c) {
-            if (!c.level1Pass) return { passed: false, score: 0 };
-            let passed = 0;
-            let totalCriteria = 0;
-            if (c.roic > 0) { if (c.roic > 10) passed++; totalCriteria++; }
-            if (c.operatingMarginTrend === 'up' || c.operatingMarginTrend === 'flat') passed++;
-            totalCriteria++;
-            if (c.freeCashFlow > 0) passed++;
-            totalCriteria++;
-            if (c.quickRatio > 0) { if (c.quickRatio > 1.0) passed++; totalCriteria++; }
-            const requiredPassing = totalCriteria >= 4 ? 3 : 2;
-            return { passed: passed >= requiredPassing, score: Math.round((passed / Math.max(totalCriteria, 3)) * 100) };
+        function closeModal() {
+            document.getElementById('explainModal').classList.remove('show');
         }
 
-        function evaluateLevel3(c) {
-            let passed = 0;
-            if (c.roic > 10) passed++;
-            if (c.freeCashFlow > 0) passed++;
-            if (c.dividendYield > 1) passed++;
-            if (c.operatingMarginTrend === 'up') passed++;
-            if (c.debtTrend === 'down') passed++;
-            if (c.competitiveness === 'dominant' || c.competitiveness === 'strong') passed++;
-            return Math.round((passed / 6) * 100);
+        // MODAL DE DESCRIPCIÓN DE EMPRESA
+        function openCompanyModal(ticker, name, description, sector, country) {
+            document.getElementById('companyTitle').textContent = `${ticker} - ${name}`;
+            document.getElementById('companyDescription').textContent = description || `Empresa del sector ${sector}`;
+            document.getElementById('companySector').textContent = sector || 'Desconocido';
+            document.getElementById('companyCountry').textContent = country || 'N/A';
+            document.getElementById('companyModal').classList.add('show');
         }
 
-        function getPEGRatio(c) {
-            return c.revenueGrowthYoY > 0 ? c.peRatio / c.revenueGrowthYoY : c.peRatio;
+        function closeCompanyModal() {
+            document.getElementById('companyModal').classList.remove('show');
         }
 
-        function getValuationStatus(peg) {
-            if (peg < 1.0) return '🟢 BARATA';
-            if (peg <= 2.0) return '🟡 JUSTA';
-            return '🔴 CARA';
+        window.onclick = function(event) {
+            const explainModal = document.getElementById('explainModal');
+            const companyModal = document.getElementById('companyModal');
+            if (event.target == explainModal) explainModal.classList.remove('show');
+            if (event.target == companyModal) companyModal.classList.remove('show');
+        }
+
+        // FORMATEA FCF INTELIGENTEMENTE
+        function formatFCF(fcf) {
+            if (fcf === 0 || fcf === null) return 'N/A';
+            if (fcf < 0) return `⚠️ ${fcf.toFixed(2)}B`;  // Alerta
+            if (fcf < 1) return `${(fcf * 1000).toFixed(0)}M`;  // En millones
+            return `${fcf.toFixed(1)}B`;  // En billones
+        }
+
+        async function loadData() {
+            const updateBtn = document.getElementById('updateBtn');
+            const splash = document.getElementById('splash');
+            const splashStatus = document.getElementById('splashStatus');
+            const progressFill = document.getElementById('progressFill');
+            const progressPercent = document.getElementById('progressPercent');
+            let progressInterval = null;  // Declarar aquí para acceso en try y catch
+
+            // Deshabilitar botón durante la carga
+            updateBtn.disabled = true;
+            splashStatus.textContent = 'Conectando con Yahoo Finance...';
+
+            try {
+                // Simular progreso (0-70% mientras espera el servidor)
+                let progress = 0;
+                progressInterval = setInterval(() => {
+                    if (progress < 70) {
+                        progress += Math.random() * 15;
+                        progressFill.style.width = progress + '%';
+                        progressPercent.textContent = Math.round(progress) + '%';
+                    }
+                }, 300);
+
+                // Descargar data.json
+                splashStatus.textContent = 'Descargando información de 634 empresas...';
+                const response = await fetch('./data.json');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                window.appData = await response.json();
+
+                // Limpiar intervalo y establecer a 100%
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressPercent.textContent = '100%';
+
+                // Verificar que tiene datos
+                let totalCompanies = 0;
+                for (const [market, info] of Object.entries(window.appData.markets)) {
+                    totalCompanies += info.companies.length;
+                }
+
+                splashStatus.textContent = `✅ Cargadas ${totalCompanies} empresas exitosamente`;
+
+                // VALIDACIÓN AUTOMÁTICA
+                validateCriteria();
+
+                // Esperar 1 segundo y ocultar splash
+                setTimeout(() => {
+                    splash.classList.add('hidden');
+                    showStart();
+                }, 1000);
+
+            } catch (error) {
+                if (progressInterval) clearInterval(progressInterval);
+                splashStatus.textContent = `❌ Error: ${error.message}`;
+                updateBtn.disabled = false;
+                console.error('Error loading data:', error);
+            }
+        }
+
+        async function init() {
+            // Mostrar splash screen con botón de actualizar
+            // El usuario debe hacer clic en "ACTUALIZAR DATOS AHORA" para cargar
+            document.getElementById('updateBtn').focus();
+        }
+
+        function validateCriteria() {
+            console.log('🔍 VALIDACIÓN INTEGRAL DE CRITERIOS');
+
+            const stats = {
+                total: 0,
+                consensus4: 0,
+                consensus3: 0,
+                consensus2: 0,
+                consensus1: 0,
+                consensus0: 0,
+                totalScore4: 0
+            };
+
+            let issues = [];
+
+            // Validar TODAS las empresas en TODOS los mercados
+            for (const [market, info] of Object.entries(window.appData.markets)) {
+                info.companies.forEach(c => {
+                    stats.total++;
+
+                    const lynch = window.evaluateLynchScore(c);
+                    const buffett = window.evaluateBuffettScore(c);
+                    const greenblatt = window.evaluateGreenblatMagic(c);
+                    const fisher = window.evaluateFisherQuality(c);
+
+                    const passLynch = lynch.growth > 5 && lynch.score >= 60;
+                    const passBuffett = buffett.buffettScore >= 50;
+                    const passGreenblatt = greenblatt.score >= 60;
+                    const passFisher = fisher.score >= 60;
+
+                    const consensus = [passLynch, passBuffett, passGreenblatt, passFisher].filter(Boolean).length;
+                    const totalScore = (passLynch ? lynch.score : 0) + (passBuffett ? buffett.buffettScore : 0) + (passGreenblatt ? greenblatt.score : 0) + (passFisher ? fisher.score : 0);
+
+                    if (consensus === 4) {
+                        stats.consensus4++;
+                        stats.totalScore4 += totalScore;
+                    } else if (consensus === 3) stats.consensus3++;
+                    else if (consensus === 2) stats.consensus2++;
+                    else if (consensus === 1) stats.consensus1++;
+                    else stats.consensus0++;
+
+                    // Detección de anomalías
+                    if (c.ticker === 'XOM' && consensus < 3) {
+                        issues.push(`🚨 Exxon (XOM): Expected 3+/4, got ${consensus}/4`);
+                    }
+                });
+            }
+
+            // Mostrar resumen
+            console.log(`\n📊 RESUMEN DE CÁLCULOS:`);
+            console.log(`   Total empresas: ${stats.total}`);
+            console.log(`   🟢 Consenso 4/4: ${stats.consensus4} empresas (Avg score: ${stats.consensus4 > 0 ? (stats.totalScore4/stats.consensus4).toFixed(0) : 0}/400)`);
+            console.log(`   🟢 Consenso 3/4: ${stats.consensus3} empresas`);
+            console.log(`   🟡 Consenso 2/4: ${stats.consensus2} empresas`);
+            console.log(`   🟠 Consenso 1/4: ${stats.consensus1} empresas`);
+            console.log(`   ⚪ Consenso 0/4: ${stats.consensus0} empresas`);
+
+            if (stats.consensus4 < 1) {
+                issues.push('🚨 Menos de 1 empresa en Consenso 4/4 - revisar criterios');
+            }
+
+            if (issues.length > 0) {
+                console.error('\n❌ PROBLEMAS ENCONTRADOS:');
+                issues.forEach(issue => console.error(`   ${issue}`));
+                console.error('\n📖 VER FILTERING_CRITERIA.md para instrucciones');
+            } else {
+                console.log('\n✅ Validación EXITOSA: Todos los cálculos son correctos');
+            }
         }
 
         function showStart() {
             const html = `
-                <div class="container start-screen">
-                    <h1>📊 Stock Analyzer</h1>
-                    <p>Análisis automático de salud empresarial</p>
-                    <p style="color: #94a3b8;">3 Mercados • 9 Criterios • Datos Reales</p>
-
-                    <h2 style="margin-top: 40px;">📊 Análisis Nuevo (3 Niveles)</h2>
-                    <div class="market-grid">
-                        <button class="market-btn" onclick="selectMarket('Brazil')">🇧🇷 Brasil</button>
-                        <button class="market-btn" onclick="selectMarket('India')">🇮🇳 India</button>
-                        <button class="market-btn" onclick="selectMarket('USA')">🇺🇸 USA</button>
-                    </div>
-
-                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">💡 Estrategias de Inversión</h2>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Análisis según filosofías de grandes inversores</p>
-
-                    <div style="margin-bottom: 30px;">
-                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">💰 Benjamin Graham - Dividendos Sostenibles</p>
-                        <div class="market-grid">
-                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('Brazil')">🇧🇷 Brasil</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('India')">🇮🇳 India</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('USA')">🇺🇸 USA</button>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 30px;">
-                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">🚀 Peter Lynch - GARP (Growth at Reasonable Price)</p>
-                        <div class="market-grid">
-                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('Brazil')">🇧🇷 Brasil</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('India')">🇮🇳 India</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('USA')">🇺🇸 USA</button>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 30px;">
-                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">📈 Warren Buffett - Análisis Profundo (Moat + Management)</p>
-                        <div class="market-grid">
-                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('Brazil')">🇧🇷 Brasil</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('India')">🇮🇳 India</button>
-                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('USA')">🇺🇸 USA</button>
-                        </div>
-                    </div>
-
-                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">🔥 Oportunidades de Reversión</h2>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Empresas con caída > 20% pero fundamentals sanos (compra barato)</p>
-                    <div class="market-grid">
-                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('Brazil')">🔥 Brasil</button>
-                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('India')">🔥 India</button>
-                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('USA')">🔥 USA</button>
-                    </div>
-
-                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">📜 Ver Historial</h2>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Análisis guardados y comparativas</p>
-                    <div class="market-grid">
-                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('Brazil')">📊 Brasil</button>
-                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('India')">📊 India</button>
-                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('USA')">📊 USA</button>
-                    </div>
-                </div>
-            `;
-            document.getElementById('app').innerHTML = html;
-        }
-
-        function selectMarket(market) {
-            currentMarket = market;
-            showAnalysis();
-        }
-
-        function showReversalOpportunities(market) {
-            currentMarket = market;
-            showReversalAnalysis(market);  // Llama a función en level2.5-handler.js
-        }
-
-        function showAnalysis() {
-            const marketData = appData.markets[currentMarket];
-            const companies = marketData.companies;
-
-            // Evaluar Nivel 1
-            const withLevel1 = companies.map(c => {
-                const l1 = evaluateLevel1(c);
-                return { ...c, level1Pass: l1.passed, level1Score: l1.score };
-            });
-
-            const greenOnly = withLevel1.filter(c => c.level1Pass);
-            const sorted = greenOnly.sort((a, b) => b.level1Score - a.level1Score);
-            displayedCompanies = sorted;
-
-            const html = `
                 <div class="container">
-                    <h1>${marketData.flag} ${currentMarket} - Nivel 1</h1>
-                    <p>5 Criterios Básicos</p>
-                    
-                    <button onclick="showStart()">← Volver</button>
-                    <button onclick="showLevel2()">Siguiente: Nivel 2 →</button>
-                    
-                    <div class="summary-box">
-                        ${greenOnly.length} empresas 🟢 pasaron Nivel 1
+                    <h1>📊 Stock Analyzer Pro</h1>
+                    <p>Análisis integral de empresas • 4 estrategias de inversión • Aprende sobre indicadores</p>
+                    <h2 style="margin-top: 24px;">Selecciona Mercado</h2>
+                    <div class="market-grid">
+                        <button onclick="showMarket('Brazil')">🇧🇷 Brasil</button>
+                        <button onclick="showMarket('India')">🇮🇳 India</button>
+                        <button onclick="showMarket('USA')">🇺🇸 USA</button>
                     </div>
-                    
-                    <div>
-                        ${sorted.map(c => `
-                            <div class="company-card">
-                                <div class="company-header">
-                                    <span>
-                                        <span style="margin-right:8px">🟢</span>
-                                        <span class="ticker">${c.ticker}</span>
-                                    </span>
-                                    <span style="color: #fbbf24;">$${c.price.toFixed(2)}</span>
-                                </div>
-                                <p>${c.name}</p>
-                                <p style="font-size: 12px;">Score: ${c.level1Score}% | D/E: ${c.debtToEquity.toFixed(2)} | Margin: ${c.netProfitMargin.toFixed(1)}% | Growth: ${c.revenueGrowthYoY.toFixed(1)}%</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <div class="divider"></div>
-                    <button onclick="showStart()">← Volver</button>
-                    <button onclick="showLevel2()">Siguiente: Nivel 2 →</button>
                 </div>
             `;
-
             document.getElementById('app').innerHTML = html;
         }
 
-        function showLevel2() {
-            const greenOnly = displayedCompanies;
-            const withLevel2 = greenOnly.map(c => {
-                const l2 = evaluateLevel2(c);
-                return { ...c, level2Pass: l2.passed, level2Score: l2.score };
-            });
+        function showMarket(market) {
+            const companies = window.appData.markets[market].companies;
 
-            const refined = withLevel2.filter(c => c.level2Pass);
-            const sorted = refined.sort((a, b) => b.level2Score - a.level2Score);
-            displayedCompanies = sorted;
+            const analyzed = companies.map(c => {
+                const lynch = window.evaluateLynchScore(c);
+                const buffett = window.evaluateBuffettScore(c);
+                const greenblatt = window.evaluateGreenblatMagic(c);
+                const fisher = window.evaluateFisherQuality(c);
 
-            // MEJORA #5: Auto-guardar análisis en IndexedDB
-            if (typeof saveAnalysis === 'function' && displayedCompanies.length > 0 && currentMarket) {
-                saveAnalysis(currentMarket, displayedCompanies).catch(err => console.error('Error guardando:', err));
-            }
+                const strategies = [];
+                let totalScore = 0;
 
-            const html = `
-                <div class="container">
-                    <h1>Nivel 2 - Refinamiento</h1>
-                    <p>4 Criterios Avanzados</p>
+                if (lynch.growth > 5 && lynch.score >= 60) {
+                    strategies.push({type: 'lynch', score: lynch.score, lynch});
+                    totalScore += lynch.score;
+                }
+                if (buffett.buffettScore >= 50) {
+                    strategies.push({type: 'buffett', score: buffett.buffettScore, buffett});
+                    totalScore += buffett.buffettScore;
+                }
+                if (greenblatt.score >= 60) {
+                    strategies.push({type: 'greenblatt', score: greenblatt.score, greenblatt});
+                    totalScore += greenblatt.score;
+                }
+                if (fisher.score >= 60) {
+                    strategies.push({type: 'fisher', score: fisher.score, fisher});
+                    totalScore += fisher.score;
+                }
 
-                    <button onclick="showAnalysis()">← Volver a Nivel 1</button>
-                    <button onclick="showLevel3()">🏆 Siguiente: Oportunidades (L3) →</button>
+                return { c, strategies, totalScore, consensus: strategies.length, lynch, buffett, greenblatt, fisher };
+            }).filter(x => x.consensus > 0);
 
-                    <div class="summary-box">
-                        ${refined.length} empresas saludables
-                    </div>
-
-                    <div>
-                        ${sorted.map(c => `
-                            <div class="company-card" onclick="showDetails(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                                <div class="company-header">
-                                    <span>
-                                        <span style="margin-right:8px">🟢</span>
-                                        <span class="ticker">${c.ticker}</span>
-                                    </span>
-                                    <span style="color: #4ade80;">Score: ${c.level2Score}%</span>
-                                </div>
-                                <p>${c.name}</p>
-                                <p style="font-size: 12px;">ROE: ${c.roic.toFixed(1)}% | FCF: $${(c.freeCashFlow / 1e9).toFixed(1)}B | Quick: ${c.quickRatio ? c.quickRatio.toFixed(2) : '—'}</p>
-                            </div>
-                        `).join('')}
-                    </div>
-
-                    <div class="divider"></div>
-                    ${getExportButtons()}
-                    <button onclick="showAnalysis()">← Volver a Nivel 1</button>
-                    <button onclick="showHistory(currentMarket)">📜 Historial</button>
-                    <button onclick="showLevel3()">🏆 Siguiente: Oportunidades (L3) →</button>
-                </div>
-            `;
-
-            document.getElementById('app').innerHTML = html;
-        }
-
-        function showLevel3() {
-            const greenOnly = displayedCompanies;
-            const withLevel3 = greenOnly.map(c => {
-                const l3 = evaluateLevel3(c);
-                const peg = getPEGRatio(c);
-                const finalScore = Math.round((c.level1Score * 0.4) + (c.level2Score * 0.4) + (l3 * 0.2));
-                return { ...c, l3Score: l3, finalScore, peg, valuation: getValuationStatus(peg) };
-            });
-
-            const cheapOnes = withLevel3.filter(c => c.peg < 1.0).sort((a, b) => b.finalScore - a.finalScore);
+            const consensus4 = analyzed.filter(x => x.consensus === 4).sort((a, b) => b.totalScore - a.totalScore);
+            const consensus3 = analyzed.filter(x => x.consensus === 3).sort((a, b) => b.totalScore - a.totalScore);
+            const consensus2 = analyzed.filter(x => x.consensus === 2).sort((a, b) => b.totalScore - a.totalScore);
+            const consensus1 = analyzed.filter(x => x.consensus === 1).sort((a, b) => b.totalScore - a.totalScore);
 
             let html = `
                 <div class="container">
-                    <h1>🏆 Oportunidades de Compra</h1>
-                    <p>BARATAS + Saludables (PEG < 1.0)</p>
+                    <h1>${window.appData.markets[market].flag} ${market}</h1>
+                    <button onclick="showStart()">← Volver</button>
 
-                    <button onclick="showLevel2()">← Volver a Nivel 2</button>
-                    <button onclick="showStart()">← Inicio</button>
+                    ${consensus4.length > 0 ? `
+                        <div class="consensus-header consensus-3">🟢 CONSENSO 4/4 - LOS 4 INVERSORES ESTÁN INTERESADOS</div>
+                        ${consensus4.map(item => renderCard(item, 4)).join('')}
+                    ` : ''}
 
-                    <div class="summary-box">
-                        ${cheapOnes.length} oportunidades de compra detectadas
-                    </div>
-            `;
+                    ${consensus3.length > 0 ? `
+                        <div class="consensus-header consensus-3">🟢 CONSENSO 3/4 - TRES INVERSORES ESTÁN INTERESADOS</div>
+                        ${consensus3.map(item => renderCard(item, 3)).join('')}
+                    ` : ''}
 
-            if (cheapOnes.length === 0) {
-                html += `
-                    <div class="company-card" style="border-left-color: #fbbf24; background: #7f2605;">
-                        <h2 style="color: #fbbf24;">⏳ Sin Oportunidades Baratas</h2>
-                        <p>No hay empresas con PEG < 1.0. Espera a que caigan de precio.</p>
-                    </div>
-                `;
-            } else {
-                html += `
-                    <div>
-                        ${cheapOnes.map((c, idx) => `
-                            <div class="company-card" style="border-left-color: #fbbf24;" onclick="showDetails(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                                <div class="company-header">
-                                    <span>
-                                        <span style="color: #fbbf24; font-weight: bold; margin-right: 8px;">#${idx + 1}</span>
-                                        <span class="ticker">${c.ticker}</span>
-                                    </span>
-                                    <span style="color: #4ade80;">🟢 BARATA</span>
-                                </div>
-                                <p>${c.name}</p>
-                                <p style="font-size: 12px;">
-                                    Score: ${c.finalScore}% |
-                                    L3: ${c.l3Score}% |
-                                    PEG: ${c.peg.toFixed(2)} |
-                                    P/E: ${c.peRatio.toFixed(1)} |
-                                    Precio: $${c.price.toFixed(2)}
-                                </p>
-                                <p style="font-size: 11px; color: #fbbf24; margin-top: 5px;">
-                                    ${c.valuation}
-                                </p>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
+                    ${consensus2.length > 0 ? `
+                        <div class="consensus-header consensus-2">🟡 CONSENSO 2/4 - DOS INVERSORES ESTÁN INTERESADOS</div>
+                        ${consensus2.map(item => renderCard(item, 2)).join('')}
+                    ` : ''}
 
-            html += `
-                    <div class="divider"></div>
-                    ${getExportButtons()}
-                    <button onclick="showLevel2()">← Volver a Nivel 2</button>
-                    <button onclick="showHistory(currentMarket)">📜 Historial</button>
-                    <button onclick="showStart()">🏠 Inicio</button>
+                    ${consensus1.length > 0 ? `
+                        <div class="consensus-header consensus-1">🟠 CONSENSO 1/4 - UN INVERSOR ESTÁ INTERESADO</div>
+                        ${consensus1.map(item => renderCard(item, 1)).join('')}
+                    ` : ''}
                 </div>
             `;
-
             document.getElementById('app').innerHTML = html;
         }
 
-        // MEJORA #5: Mostrar historial
-        window.showHistory = async function(market) {
-            try {
-                const analyses = await getAnalysesByMarket(market);
+        function renderCard(item, consensus) {
+            const c = item.c;
+            const badgeClass = consensus === 4 ? 'badge-3' : consensus === 3 ? 'badge-3' : consensus === 2 ? 'badge-2' : 'badge-1';
+            const consensusText = consensus === 4 ? '🟢 4/4' : consensus === 3 ? '🟢 3/4' : consensus === 2 ? '🟡 2/4' : '🟠 1/4';
+            const maxScore = consensus * 100;
 
-                if (!analyses || analyses.length === 0) {
-                    document.getElementById('app').innerHTML = `
-                        <div class="container">
-                            <h2>📊 Historial - ${market}</h2>
-                            <div class="summary-box" style="border-left-color: #fbbf24; background: #7f2605; color: #fbbf24;">
-                                <p>⏳ Sin análisis guardados para ${market}</p>
-                            </div>
-                            <button onclick="showStart()">← Volver</button>
+            return `
+                <div class="company-card">
+                    <div class="company-badge ${badgeClass}">${consensusText} Score: ${item.totalScore}/${maxScore}</div>
+
+                    <div class="company-header">
+                        <div class="company-name" style="cursor: pointer;" onclick="openCompanyModal('${c.ticker}', '${c.name}', '${(c.description || '').replace(/'/g, "\\'")}', '${c.sector}', '${c.country}')">
+                            <h3>${c.ticker}</h3>
+                            <p>${c.description ? c.description.split(',')[0] : c.name}</p>
                         </div>
-                    `;
-                    return;
-                }
-
-                let html = `
-                    <div class="container">
-                        <h2>📊 Historial - ${market}</h2>
-                        <p style="color: #94a3b8; margin-bottom: 20px;">${analyses.length} análisis guardados</p>
-                        <button onclick="showStart()">← Volver</button>
-                        <div style="margin-top: 20px;">
-                `;
-
-                analyses.forEach((analysis, idx) => {
-                    const date = new Date(analysis.timestamp);
-                    const dateStr = date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-                    html += `
-                        <div class="company-card" style="cursor: pointer; background: #1e293b; border-left-color: #60a5fa;" onclick="compareAnalyses('${analysis.id}', '${market}')">
-                            <div class="company-header">
-                                <span>
-                                    <span class="ticker">${dateStr}</span>
-                                </span>
-                                <span class="price">${analysis.companies.length} empresas</span>
-                            </div>
-                            <div class="company-name">${idx === 0 ? '📍 Análisis más reciente' : 'Comparar con actual'}</div>
-                        </div>
-                    `;
-                });
-
-                html += `
-                        </div>
-                        <button onclick="showStart()" style="margin-top: 20px;">← Volver</button>
+                        <div class="company-ticker">${c.sector}</div>
                     </div>
-                `;
 
-                document.getElementById('app').innerHTML = html;
-            } catch (error) {
-                console.error('Error mostrando historial:', error);
-                document.getElementById('app').innerHTML = `
-                    <div class="container">
-                        <h2 style="color: #ef4444;">❌ Error</h2>
-                        <p>${error}</p>
-                        <button onclick="showStart()">← Volver</button>
+                    <div class="divider"></div>
+
+                    <div class="metrics-grid">
+                        <div class="metric" onclick="openModal('metrics', 'price')">
+                            <div class="metric-label">Precio <span class="info-icon">?</span></div>
+                            <div class="metric-value">$${c.price.toFixed(2)}</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'pe')">
+                            <div class="metric-label">P/E <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.peRatio.toFixed(1)}</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'margen')">
+                            <div class="metric-label">Margen <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.netProfitMargin.toFixed(1)}%</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'crecimiento')">
+                            <div class="metric-label">Crec. <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.revenueGrowthYoY.toFixed(1)}%</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'de')">
+                            <div class="metric-label">D/E <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.debtToEquity.toFixed(2)}</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'dividendo')">
+                            <div class="metric-label">Div. <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.dividendYield.toFixed(2)}%</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'roe')">
+                            <div class="metric-label">ROE <span class="info-icon">?</span></div>
+                            <div class="metric-value">${c.roic.toFixed(1)}%</div>
+                        </div>
+                        <div class="metric" onclick="openModal('metrics', 'fcf')">
+                            <div class="metric-label">FCF <span class="info-icon">?</span></div>
+                            <div class="metric-value">${formatFCF(c.freeCashFlow)}</div>
+                        </div>
                     </div>
-                `;
-            }
-        };
 
-        window.showDetails = function(company) {
-            if (!company) return;
+                    <div class="divider"></div>
 
-            const peg = getPEGRatio(company);
-            const valuation = getValuationStatus(peg);
-
-            const html = `
-                <h2 style="margin-top:0; color:#4ade80;">${company.ticker} - ${company.name}</h2>
-                <p style="color:#94a3b8; font-size:12px;">Precio: $${company.price.toFixed(2)} USD | ${company.sector}</p>
-
-                <div style="background:#0f172a; padding:15px; border-radius:6px; margin:15px 0; border-left:3px solid #fbbf24;">
-                    <h3 style="color:#fbbf24; margin-top:0;">💰 VALUACIÓN</h3>
-                    <p>PEG Ratio = ${peg.toFixed(2)} ${valuation}</p>
-                    <p style="font-size:12px; color:#94a3b8;">P/E: ${company.peRatio.toFixed(1)} | Crecimiento: ${company.revenueGrowthYoY.toFixed(1)}%</p>
+                    <div class="strategies">
+                        ${item.strategies.map(s => {
+                            if (s.type === 'lynch') return `<div class="strategy-badge lynch-badge" onclick="openModal('strategies', 'lynch')">🚀 LYNCH: PEG ${s.lynch.pegRatio.toFixed(2)} <span class="info-icon">?</span></div>`;
+                            if (s.type === 'buffett') return `<div class="strategy-badge buffett-badge" onclick="openModal('strategies', 'buffett')">📈 BUFFETT: ${s.buffett.buffettScore}/100 <span class="info-icon">?</span></div>`;
+                            if (s.type === 'greenblatt') return `<div class="strategy-badge greenblatt-badge" onclick="openModal('strategies', 'greenblatt')">💎 GREENBLATT: ${s.greenblatt.score}/100 <span class="info-icon">?</span></div>`;
+                            if (s.type === 'fisher') return `<div class="strategy-badge fisher-badge" onclick="openModal('strategies', 'fisher')">🌟 FISHER: ${s.fisher.score}/100 <span class="info-icon">?</span></div>`;
+                        }).join('')}
+                    </div>
                 </div>
-
-                <h3 style="color:#60a5fa;">📋 NIVEL 1: Criterios Básicos</h3>
-                <div style="background:#0f172a; padding:12px; border-radius:4px; font-size:12px;">
-                    <p>${company.debtToEquity < 1.5 ? '✅' : '❌'} Deuda/Equity: ${company.debtToEquity.toFixed(2)} (< 1.5)</p>
-                    <p>${company.netProfitMargin > 5 ? '✅' : '❌'} Net Margin: ${company.netProfitMargin.toFixed(1)}% (> 5%)</p>
-                    <p>${company.revenueGrowthYoY > 5 ? '✅' : '❌'} Revenue Growth: ${company.revenueGrowthYoY.toFixed(1)}% (> 5%)</p>
-                    <p>${company.currentRatio > 1.0 ? '✅' : '❌'} Current Ratio: ${company.currentRatio.toFixed(2)} (> 1.0)</p>
-                    <p>${company.peRatio < company.sectorAvgPE ? '✅' : '❌'} P/E vs Sector: ${company.peRatio.toFixed(1)} vs ${company.sectorAvgPE}</p>
-                    <p style="color:#4ade80; margin-top:8px; font-weight:bold;">Score L1: ${company.level1Score || '-'}%</p>
-                </div>
-
-                <h3 style="color:#60a5fa; margin-top:15px;">🔍 NIVEL 2: Criterios Avanzados</h3>
-                <div style="background:#0f172a; padding:12px; border-radius:4px; font-size:12px;">
-                    <p>${company.roic > 10 ? '✅' : '❌'} ROE: ${company.roic.toFixed(1)}% (> 10%)</p>
-                    <p>${['up', 'flat'].includes(company.operatingMarginTrend) ? '✅' : '❌'} Op Margin Trend: ${company.operatingMarginTrend}</p>
-                    <p>${company.freeCashFlow > 0 ? '✅' : '❌'} Free Cash Flow: $${(company.freeCashFlow / 1e9).toFixed(1)}B</p>
-                    <p>${company.quickRatio > 1.0 ? '✅' : '❌'} Quick Ratio: ${company.quickRatio ? company.quickRatio.toFixed(2) : '-'}</p>
-                    <p style="color:#4ade80; margin-top:8px; font-weight:bold;">Score L2: ${company.level2Score || '-'}%</p>
-                </div>
-
-                <button onclick="document.getElementById('modal').style.display='none'" style="width:100%; margin-top:15px; background:#ef4444;">Cerrar</button>
             `;
-
-            document.getElementById('modal-content').innerHTML = html;
-            document.getElementById('modal').style.display = 'flex';
-        };
-
-        window.compareAnalyses = async function(analysisId, market) {
-            try {
-                const analyses = await getAnalysesByMarket(market);
-
-                if (!analyses || analyses.length < 2) {
-                    alert('Se necesitan al menos 2 análisis para comparar');
-                    return;
-                }
-
-                const current = analyses[0];
-                const previous = analyses.find(a => a.id === analysisId);
-
-                if (!previous) {
-                    console.error('Análisis no encontrado:', analysisId);
-                    alert('Análisis no encontrado');
-                    return;
-                }
-
-                if (previous.id === current.id) {
-                    alert('Selecciona un análisis diferente al actual');
-                    return;
-                }
-
-                if (!previous.companies || !current.companies) {
-                    console.error('Error: datos de empresas faltantes', {previous, current});
-                    alert('Error: datos incompletos en análisis');
-                    return;
-                }
-
-                const comparison = compareAnalyses(previous, current);
-
-                if (!comparison) {
-                    alert('Error al comparar análisis');
-                    return;
-                }
-
-                let html = `
-                    <div class="container">
-                        <h2>📈 Comparativa</h2>
-                        <p>${new Date(previous.timestamp).toLocaleDateString('es-ES')} vs ${new Date(current.timestamp).toLocaleDateString('es-ES')}</p>
-
-                        <div class="summary-box" style="background: #1e293b; border-left-color: #fbbf24; color: white; padding: 15px;">
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
-                                <div>
-                                    <div style="color: #fbbf24; font-size: 20px; font-weight: bold;">${comparison.netChange > 0 ? '+' : ''}${comparison.netChange}</div>
-                                    <div style="font-size: 11px; color: #94a3b8;">Cambio neto</div>
-                                </div>
-                                <div>
-                                    <div style="color: #4ade80; font-size: 20px; font-weight: bold;">${comparison.newEntries.length}</div>
-                                    <div style="font-size: 11px; color: #94a3b8;">Nuevas ✨</div>
-                                </div>
-                                <div>
-                                    <div style="color: #ef4444; font-size: 20px; font-weight: bold;">${comparison.exitedEntries.length}</div>
-                                    <div style="font-size: 11px; color: #94a3b8;">Salidas ❌</div>
-                                </div>
-                                <div>
-                                    <div style="color: #60a5fa; font-size: 20px; font-weight: bold;">${comparison.improved.length + comparison.declined.length}</div>
-                                    <div style="font-size: 11px; color: #94a3b8;">Cambios 📊</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 20px;">
-                            ${comparison.newEntries.length > 0 ? `
-                                <h3 style="color: #4ade80; margin: 15px 0 10px 0;">✨ NUEVAS (${comparison.newEntries.length})</h3>
-                                ${comparison.newEntries.map(c => `
-                                    <div class="company-card">
-                                        <div class="company-header">
-                                            <span class="ticker">${c.ticker}</span>
-                                            <span style="color: #4ade80;">NUEVA</span>
-                                        </div>
-                                        <div class="company-name">${c.name}</div>
-                                    </div>
-                                `).join('')}
-                            ` : ''}
-
-                            ${comparison.improved.length > 0 ? `
-                                <h3 style="color: #60a5fa; margin: 15px 0 10px 0;">🔼 MEJORARON (${comparison.improved.length})</h3>
-                                ${comparison.improved.map(c => `
-                                    <div class="company-card">
-                                        <div class="company-header">
-                                            <span class="ticker">${c.ticker}</span>
-                                            <span style="color: #60a5fa;">+${c.scoreDiff}%</span>
-                                        </div>
-                                        <div class="company-name">${c.name}</div>
-                                    </div>
-                                `).join('')}
-                            ` : ''}
-
-                            ${comparison.declined.length > 0 ? `
-                                <h3 style="color: #fbbf24; margin: 15px 0 10px 0;">🔽 EMPEORARON (${comparison.declined.length})</h3>
-                                ${comparison.declined.map(c => `
-                                    <div class="company-card">
-                                        <div class="company-header">
-                                            <span class="ticker">${c.ticker}</span>
-                                            <span style="color: #fbbf24;">${c.scoreDiff}%</span>
-                                        </div>
-                                        <div class="company-name">${c.name}</div>
-                                    </div>
-                                `).join('')}
-                            ` : ''}
-
-                            ${comparison.exitedEntries.length > 0 ? `
-                                <h3 style="color: #ef4444; margin: 15px 0 10px 0;">❌ SALIDAS (${comparison.exitedEntries.length})</h3>
-                                ${comparison.exitedEntries.map(c => `
-                                    <div class="company-card">
-                                        <div class="company-header">
-                                            <span class="ticker">${c.ticker}</span>
-                                            <span style="color: #ef4444;">SALIÓ</span>
-                                        </div>
-                                        <div class="company-name">${c.name}</div>
-                                    </div>
-                                `).join('')}
-                            ` : ''}
-                        </div>
-
-                        <button onclick="showHistory('${market}')" style="margin-top: 20px;">← Volver al historial</button>
-                        <button onclick="showStart()" style="margin-top: 10px;">← Inicio</button>
-                    </div>
-                `;
-
-                document.getElementById('app').innerHTML = html;
-            } catch (error) {
-                console.error('Error comparando:', error);
-                alert('Error al comparar: ' + error);
-            }
-        };
-
-        async function loadData() {
-            try {
-                const response = await fetch('./data.json');
-                appData = await response.json();
-                showStart();
-            } catch (error) {
-                document.getElementById('app').innerHTML = `
-                    <div class="container">
-                        <h1 style="color: #ef4444;">❌ Error</h1>
-                        <p>${error.message}</p>
-                        <button onclick="location.reload()">Recargar</button>
-                    </div>
-                `;
-            }
         }
 
-        loadData();
-
-        // Registrar Service Worker para PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then((registration) => {
-                    console.log('[App] Service Worker registered successfully:', registration.scope);
-
-                    // Escuchar actualizaciones disponibles
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'activated') {
-                                console.log('[App] New version available');
-                                // Aquí podrías mostrar un banner al usuario
-                            }
-                        });
-                    });
-                })
-                .catch((error) => {
-                    console.error('[App] Service Worker registration failed:', error);
-                });
-
-            // Permitir actualizar a nueva versión cuando esté disponible
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                refreshing = true;
-                window.location.reload();
-            });
-        }
+        init();
     </script>
 </body>
 </html>

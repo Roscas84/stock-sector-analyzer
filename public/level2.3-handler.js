@@ -55,13 +55,13 @@ window.evaluateGrahamDividend = function(company) {
 };
 
 window.showGrahamAnalysis = function(market) {
-  if (!appData || !appData.markets || !appData.markets[market]) {
+  if (!window.appData || !window.appData.markets || !window.appData.markets[market]) {
     document.getElementById('app').innerHTML = `<div class="container"><h1>❌ Sin datos</h1></div>`;
     return;
   }
 
-  currentMarket = market;
-  const companies = appData.markets[market].companies
+  window.currentMarket = market;
+  const companies = window.appData.markets[market].companies
     .map(c => ({ ...c, graham: evaluateGrahamDividend(c) }))
     .filter(c => c.graham.dividend >= 1.5)
     .sort((a, b) => b.graham.score - a.graham.score);

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Analyzer</title>
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Análisis masivo de acciones por sectores con filtrado inteligente" />
+    <meta name="theme-color" content="#059669" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Stock Analyzer" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#059669" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23059669' width='100' height='100'/><text x='50' y='60' font-size='60' fill='white' text-anchor='middle'>📊</text></svg>" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23059669' width='180' height='180' rx='40'/><text x='90' y='105' font-size='90' fill='white' text-anchor='middle'>📊</text></svg>" />
+    <!-- MEJORA #5: Historial IndexedDB -->
+    <script src="db-manager.js"></script>
+    <script src="history-handler.js"></script>
+    <!-- MEJORA #6: Exportación CSV/TXT -->
+    <script src="export-handler.js"></script>
+    <!-- MEJORA #7: Análisis de Reversión (P/B + Caída 52w) -->
+    <script src="level2.5-handler.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #4ade80; font-size: 32px; margin-bottom: 10px; }
+        h2 { color: #60a5fa; font-size: 18px; margin: 20px 0 10px 0; }
+        p { color: #cbd5e1; font-size: 14px; margin: 10px 0; }
+        
+        .company-card {
+            background: #1e293b;
+            border-left: 3px solid #60a5fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .company-card:hover { background: #334155; }
+        
+        .company-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .ticker { font-weight: bold; color: #4ade80; font-size: 16px; }
+        
+        button {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        button:hover { background: #059669; }
+        .market-btn { background: linear-gradient(135deg, #8b5cf6, #7c3aed); padding: 20px; font-size: 16px; }
+        .market-btn:hover { opacity: 0.9; }
+        
+        .start-screen { text-align: center; padding: 40px; }
+        .market-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 30px 0; }
+        
+        .summary-box {
+            background: #1e293b;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 20px 0;
+            color: #4ade80;
+            font-weight: 600;
+        }
+        
+        .divider { height: 1px; background: #334155; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:#1e293b; padding:30px; border-radius:8px; max-width:600px; max-height:80vh; overflow-y:auto; border:1px solid #334155;">
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        window.appData = null;
+        window.currentMarket = null;
+        window.displayedCompanies = [];
+
+        function evaluateLevel1(c) {
+            let passed = 0;
+            if (c.debtToEquity < 1.5) passed++;
+            if (c.netProfitMargin > 5) passed++;
+            if (c.revenueGrowthYoY > 5) passed++;
+            if (c.currentRatio > 1.0) passed++;
+            if (c.peRatio < c.sectorAvgPE) passed++;
+            return { passed: passed >= 4, score: Math.round((passed / 5) * 100) };
+        }
+
+        function evaluateLevel2(c) {
+            if (!c.level1Pass) return { passed: false, score: 0 };
+            let passed = 0;
+            let totalCriteria = 0;
+            if (c.roic > 0) { if (c.roic > 10) passed++; totalCriteria++; }
+            if (c.operatingMarginTrend === 'up' || c.operatingMarginTrend === 'flat') passed++;
+            totalCriteria++;
+            if (c.freeCashFlow > 0) passed++;
+            totalCriteria++;
+            if (c.quickRatio > 0) { if (c.quickRatio > 1.0) passed++; totalCriteria++; }
+            const requiredPassing = totalCriteria >= 4 ? 3 : 2;
+            return { passed: passed >= requiredPassing, score: Math.round((passed / Math.max(totalCriteria, 3)) * 100) };
+        }
+
+        function evaluateLevel3(c) {
+            let passed = 0;
+            if (c.roic > 10) passed++;
+            if (c.freeCashFlow > 0) passed++;
+            if (c.dividendYield > 1) passed++;
+            if (c.operatingMarginTrend === 'up') passed++;
+            if (c.debtTrend === 'down') passed++;
+            if (c.competitiveness === 'dominant' || c.competitiveness === 'strong') passed++;
+            return Math.round((passed / 6) * 100);
+        }
+
+        function getPEGRatio(c) {
+            return c.revenueGrowthYoY > 0 ? c.peRatio / c.revenueGrowthYoY : c.peRatio;
+        }
+
+        function getValuationStatus(peg) {
+            if (peg < 1.0) return '🟢 BARATA';
+            if (peg <= 2.0) return '🟡 JUSTA';
+            return '🔴 CARA';
+        }
+
+        function showStart() {
+            const html = `
+                <div class="container start-screen">
+                    <h1>📊 Stock Analyzer</h1>
+                    <p>Análisis automático de salud empresarial</p>
+                    <p style="color: #94a3b8;">3 Mercados • 9 Criterios • Datos Reales</p>
+
+                    <h2 style="margin-top: 40px;">📊 Análisis Nuevo (3 Niveles)</h2>
+                    <div class="market-grid">
+                        <button class="market-btn" onclick="selectMarket('Brazil')">🇧🇷 Brasil</button>
+                        <button class="market-btn" onclick="selectMarket('India')">🇮🇳 India</button>
+                        <button class="market-btn" onclick="selectMarket('USA')">🇺🇸 USA</button>
+                    </div>
+
+                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">💡 Estrategias de Inversión</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Análisis según filosofías de grandes inversores</p>
+
+                    <div style="margin-bottom: 30px;">
+                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">💰 Benjamin Graham - Dividendos Sostenibles</p>
+                        <div class="market-grid">
+                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('Brazil')">🇧🇷 Brasil</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('India')">🇮🇳 India</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showGrahamAnalysis('USA')">🇺🇸 USA</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 30px;">
+                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">🚀 Peter Lynch - GARP (Growth at Reasonable Price)</p>
+                        <div class="market-grid">
+                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('Brazil')">🇧🇷 Brasil</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('India')">🇮🇳 India</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="showLynchAnalysis('USA')">🇺🇸 USA</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 30px;">
+                        <p style="color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 10px;">📈 Warren Buffett - Análisis Profundo (Moat + Management)</p>
+                        <div class="market-grid">
+                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('Brazil')">🇧🇷 Brasil</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('India')">🇮🇳 India</button>
+                            <button class="market-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" onclick="showBuffettAnalysis('USA')">🇺🇸 USA</button>
+                        </div>
+                    </div>
+
+                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">🔥 Oportunidades de Reversión</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Empresas con caída > 20% pero fundamentals sanos (compra barato)</p>
+                    <div class="market-grid">
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('Brazil')">🔥 Brasil</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('India')">🔥 India</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="showReversalOpportunities('USA')">🔥 USA</button>
+                    </div>
+
+                    <h2 style="margin-top: 50px; border-top: 1px solid #334155; padding-top: 30px;">📜 Ver Historial</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Análisis guardados y comparativas</p>
+                    <div class="market-grid">
+                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('Brazil')">📊 Brasil</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('India')">📊 India</button>
+                        <button class="market-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);" onclick="showHistory('USA')">📊 USA</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('app').innerHTML = html;
+        }
+
+        function selectMarket(market) {
+            currentMarket = market;
+            showAnalysis();
+        }
+
+        function showReversalOpportunities(market) {
+            currentMarket = market;
+            showReversalAnalysis(market);  // Llama a función en level2.5-handler.js
+        }
+
+        function showAnalysis() {
+            const marketData = appData.markets[currentMarket];
+            const companies = marketData.companies;
+
+            // Evaluar Nivel 1
+            const withLevel1 = companies.map(c => {
+                const l1 = evaluateLevel1(c);
+                return { ...c, level1Pass: l1.passed, level1Score: l1.score };
+            });
+
+            const greenOnly = withLevel1.filter(c => c.level1Pass);
+            const sorted = greenOnly.sort((a, b) => b.level1Score - a.level1Score);
+            displayedCompanies = sorted;
+
+            const html = `
+                <div class="container">
+                    <h1>${marketData.flag} ${currentMarket} - Nivel 1</h1>
+                    <p>5 Criterios Básicos</p>
+                    
+                    <button onclick="showStart()">← Volver</button>
+                    <button onclick="showLevel2()">Siguiente: Nivel 2 →</button>
+                    
+                    <div class="summary-box">
+                        ${greenOnly.length} empresas 🟢 pasaron Nivel 1
+                    </div>
+                    
+                    <div>
+                        ${sorted.map(c => `
+                            <div class="company-card">
+                                <div class="company-header">
+                                    <span>
+                                        <span style="margin-right:8px">🟢</span>
+                                        <span class="ticker">${c.ticker}</span>
+                                    </span>
+                                    <span style="color: #fbbf24;">$${c.price.toFixed(2)}</span>
+                                </div>
+                                <p>${c.name}</p>
+                                <p style="font-size: 12px;">Score: ${c.level1Score}% | D/E: ${c.debtToEquity.toFixed(2)} | Margin: ${c.netProfitMargin.toFixed(1)}% | Growth: ${c.revenueGrowthYoY.toFixed(1)}%</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="divider"></div>
+                    <button onclick="showStart()">← Volver</button>
+                    <button onclick="showLevel2()">Siguiente: Nivel 2 →</button>
+                </div>
+            `;
+
+            document.getElementById('app').innerHTML = html;
+        }
+
+        function showLevel2() {
+            const greenOnly = displayedCompanies;
+            const withLevel2 = greenOnly.map(c => {
+                const l2 = evaluateLevel2(c);
+                return { ...c, level2Pass: l2.passed, level2Score: l2.score };
+            });
+
+            const refined = withLevel2.filter(c => c.level2Pass);
+            const sorted = refined.sort((a, b) => b.level2Score - a.level2Score);
+            displayedCompanies = sorted;
+
+            // MEJORA #5: Auto-guardar análisis en IndexedDB
+            if (typeof saveAnalysis === 'function' && displayedCompanies.length > 0 && currentMarket) {
+                saveAnalysis(currentMarket, displayedCompanies).catch(err => console.error('Error guardando:', err));
+            }
+
+            const html = `
+                <div class="container">
+                    <h1>Nivel 2 - Refinamiento</h1>
+                    <p>4 Criterios Avanzados</p>
+
+                    <button onclick="showAnalysis()">← Volver a Nivel 1</button>
+                    <button onclick="showLevel3()">🏆 Siguiente: Oportunidades (L3) →</button>
+
+                    <div class="summary-box">
+                        ${refined.length} empresas saludables
+                    </div>
+
+                    <div>
+                        ${sorted.map(c => `
+                            <div class="company-card" onclick="showDetails(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                                <div class="company-header">
+                                    <span>
+                                        <span style="margin-right:8px">🟢</span>
+                                        <span class="ticker">${c.ticker}</span>
+                                    </span>
+                                    <span style="color: #4ade80;">Score: ${c.level2Score}%</span>
+                                </div>
+                                <p>${c.name}</p>
+                                <p style="font-size: 12px;">ROE: ${c.roic.toFixed(1)}% | FCF: $${(c.freeCashFlow / 1e9).toFixed(1)}B | Quick: ${c.quickRatio ? c.quickRatio.toFixed(2) : '—'}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="divider"></div>
+                    ${getExportButtons()}
+                    <button onclick="showAnalysis()">← Volver a Nivel 1</button>
+                    <button onclick="showHistory(currentMarket)">📜 Historial</button>
+                    <button onclick="showLevel3()">🏆 Siguiente: Oportunidades (L3) →</button>
+                </div>
+            `;
+
+            document.getElementById('app').innerHTML = html;
+        }
+
+        function showLevel3() {
+            const greenOnly = displayedCompanies;
+            const withLevel3 = greenOnly.map(c => {
+                const l3 = evaluateLevel3(c);
+                const peg = getPEGRatio(c);
+                const finalScore = Math.round((c.level1Score * 0.4) + (c.level2Score * 0.4) + (l3 * 0.2));
+                return { ...c, l3Score: l3, finalScore, peg, valuation: getValuationStatus(peg) };
+            });
+
+            const cheapOnes = withLevel3.filter(c => c.peg < 1.0).sort((a, b) => b.finalScore - a.finalScore);
+
+            let html = `
+                <div class="container">
+                    <h1>🏆 Oportunidades de Compra</h1>
+                    <p>BARATAS + Saludables (PEG < 1.0)</p>
+
+                    <button onclick="showLevel2()">← Volver a Nivel 2</button>
+                    <button onclick="showStart()">← Inicio</button>
+
+                    <div class="summary-box">
+                        ${cheapOnes.length} oportunidades de compra detectadas
+                    </div>
+            `;
+
+            if (cheapOnes.length === 0) {
+                html += `
+                    <div class="company-card" style="border-left-color: #fbbf24; background: #7f2605;">
+                        <h2 style="color: #fbbf24;">⏳ Sin Oportunidades Baratas</h2>
+                        <p>No hay empresas con PEG < 1.0. Espera a que caigan de precio.</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div>
+                        ${cheapOnes.map((c, idx) => `
+                            <div class="company-card" style="border-left-color: #fbbf24;" onclick="showDetails(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                                <div class="company-header">
+                                    <span>
+                                        <span style="color: #fbbf24; font-weight: bold; margin-right: 8px;">#${idx + 1}</span>
+                                        <span class="ticker">${c.ticker}</span>
+                                    </span>
+                                    <span style="color: #4ade80;">🟢 BARATA</span>
+                                </div>
+                                <p>${c.name}</p>
+                                <p style="font-size: 12px;">
+                                    Score: ${c.finalScore}% |
+                                    L3: ${c.l3Score}% |
+                                    PEG: ${c.peg.toFixed(2)} |
+                                    P/E: ${c.peRatio.toFixed(1)} |
+                                    Precio: $${c.price.toFixed(2)}
+                                </p>
+                                <p style="font-size: 11px; color: #fbbf24; margin-top: 5px;">
+                                    ${c.valuation}
+                                </p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            html += `
+                    <div class="divider"></div>
+                    ${getExportButtons()}
+                    <button onclick="showLevel2()">← Volver a Nivel 2</button>
+                    <button onclick="showHistory(currentMarket)">📜 Historial</button>
+                    <button onclick="showStart()">🏠 Inicio</button>
+                </div>
+            `;
+
+            document.getElementById('app').innerHTML = html;
+        }
+
+        // MEJORA #5: Mostrar historial
+        window.showHistory = async function(market) {
+            try {
+                const analyses = await getAnalysesByMarket(market);
+
+                if (!analyses || analyses.length === 0) {
+                    document.getElementById('app').innerHTML = `
+                        <div class="container">
+                            <h2>📊 Historial - ${market}</h2>
+                            <div class="summary-box" style="border-left-color: #fbbf24; background: #7f2605; color: #fbbf24;">
+                                <p>⏳ Sin análisis guardados para ${market}</p>
+                            </div>
+                            <button onclick="showStart()">← Volver</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = `
+                    <div class="container">
+                        <h2>📊 Historial - ${market}</h2>
+                        <p style="color: #94a3b8; margin-bottom: 20px;">${analyses.length} análisis guardados</p>
+                        <button onclick="showStart()">← Volver</button>
+                        <div style="margin-top: 20px;">
+                `;
+
+                analyses.forEach((analysis, idx) => {
+                    const date = new Date(analysis.timestamp);
+                    const dateStr = date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                    html += `
+                        <div class="company-card" style="cursor: pointer; background: #1e293b; border-left-color: #60a5fa;" onclick="compareAnalyses('${analysis.id}', '${market}')">
+                            <div class="company-header">
+                                <span>
+                                    <span class="ticker">${dateStr}</span>
+                                </span>
+                                <span class="price">${analysis.companies.length} empresas</span>
+                            </div>
+                            <div class="company-name">${idx === 0 ? '📍 Análisis más reciente' : 'Comparar con actual'}</div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                        <button onclick="showStart()" style="margin-top: 20px;">← Volver</button>
+                    </div>
+                `;
+
+                document.getElementById('app').innerHTML = html;
+            } catch (error) {
+                console.error('Error mostrando historial:', error);
+                document.getElementById('app').innerHTML = `
+                    <div class="container">
+                        <h2 style="color: #ef4444;">❌ Error</h2>
+                        <p>${error}</p>
+                        <button onclick="showStart()">← Volver</button>
+                    </div>
+                `;
+            }
+        };
+
+        window.showDetails = function(company) {
+            if (!company) return;
+
+            const peg = getPEGRatio(company);
+            const valuation = getValuationStatus(peg);
+
+            const html = `
+                <h2 style="margin-top:0; color:#4ade80;">${company.ticker} - ${company.name}</h2>
+                <p style="color:#94a3b8; font-size:12px;">Precio: $${company.price.toFixed(2)} USD | ${company.sector}</p>
+
+                <div style="background:#0f172a; padding:15px; border-radius:6px; margin:15px 0; border-left:3px solid #fbbf24;">
+                    <h3 style="color:#fbbf24; margin-top:0;">💰 VALUACIÓN</h3>
+                    <p>PEG Ratio = ${peg.toFixed(2)} ${valuation}</p>
+                    <p style="font-size:12px; color:#94a3b8;">P/E: ${company.peRatio.toFixed(1)} | Crecimiento: ${company.revenueGrowthYoY.toFixed(1)}%</p>
+                </div>
+
+                <h3 style="color:#60a5fa;">📋 NIVEL 1: Criterios Básicos</h3>
+                <div style="background:#0f172a; padding:12px; border-radius:4px; font-size:12px;">
+                    <p>${company.debtToEquity < 1.5 ? '✅' : '❌'} Deuda/Equity: ${company.debtToEquity.toFixed(2)} (< 1.5)</p>
+                    <p>${company.netProfitMargin > 5 ? '✅' : '❌'} Net Margin: ${company.netProfitMargin.toFixed(1)}% (> 5%)</p>
+                    <p>${company.revenueGrowthYoY > 5 ? '✅' : '❌'} Revenue Growth: ${company.revenueGrowthYoY.toFixed(1)}% (> 5%)</p>
+                    <p>${company.currentRatio > 1.0 ? '✅' : '❌'} Current Ratio: ${company.currentRatio.toFixed(2)} (> 1.0)</p>
+                    <p>${company.peRatio < company.sectorAvgPE ? '✅' : '❌'} P/E vs Sector: ${company.peRatio.toFixed(1)} vs ${company.sectorAvgPE}</p>
+                    <p style="color:#4ade80; margin-top:8px; font-weight:bold;">Score L1: ${company.level1Score || '-'}%</p>
+                </div>
+
+                <h3 style="color:#60a5fa; margin-top:15px;">🔍 NIVEL 2: Criterios Avanzados</h3>
+                <div style="background:#0f172a; padding:12px; border-radius:4px; font-size:12px;">
+                    <p>${company.roic > 10 ? '✅' : '❌'} ROE: ${company.roic.toFixed(1)}% (> 10%)</p>
+                    <p>${['up', 'flat'].includes(company.operatingMarginTrend) ? '✅' : '❌'} Op Margin Trend: ${company.operatingMarginTrend}</p>
+                    <p>${company.freeCashFlow > 0 ? '✅' : '❌'} Free Cash Flow: $${(company.freeCashFlow / 1e9).toFixed(1)}B</p>
+                    <p>${company.quickRatio > 1.0 ? '✅' : '❌'} Quick Ratio: ${company.quickRatio ? company.quickRatio.toFixed(2) : '-'}</p>
+                    <p style="color:#4ade80; margin-top:8px; font-weight:bold;">Score L2: ${company.level2Score || '-'}%</p>
+                </div>
+
+                <button onclick="document.getElementById('modal').style.display='none'" style="width:100%; margin-top:15px; background:#ef4444;">Cerrar</button>
+            `;
+
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        };
+
+        window.compareAnalyses = async function(analysisId, market) {
+            try {
+                const analyses = await getAnalysesByMarket(market);
+
+                if (!analyses || analyses.length < 2) {
+                    alert('Se necesitan al menos 2 análisis para comparar');
+                    return;
+                }
+
+                const current = analyses[0];
+                const previous = analyses.find(a => a.id === analysisId);
+
+                if (!previous) {
+                    console.error('Análisis no encontrado:', analysisId);
+                    alert('Análisis no encontrado');
+                    return;
+                }
+
+                if (previous.id === current.id) {
+                    alert('Selecciona un análisis diferente al actual');
+                    return;
+                }
+
+                if (!previous.companies || !current.companies) {
+                    console.error('Error: datos de empresas faltantes', {previous, current});
+                    alert('Error: datos incompletos en análisis');
+                    return;
+                }
+
+                const comparison = compareAnalyses(previous, current);
+
+                if (!comparison) {
+                    alert('Error al comparar análisis');
+                    return;
+                }
+
+                let html = `
+                    <div class="container">
+                        <h2>📈 Comparativa</h2>
+                        <p>${new Date(previous.timestamp).toLocaleDateString('es-ES')} vs ${new Date(current.timestamp).toLocaleDateString('es-ES')}</p>
+
+                        <div class="summary-box" style="background: #1e293b; border-left-color: #fbbf24; color: white; padding: 15px;">
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                                <div>
+                                    <div style="color: #fbbf24; font-size: 20px; font-weight: bold;">${comparison.netChange > 0 ? '+' : ''}${comparison.netChange}</div>
+                                    <div style="font-size: 11px; color: #94a3b8;">Cambio neto</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ade80; font-size: 20px; font-weight: bold;">${comparison.newEntries.length}</div>
+                                    <div style="font-size: 11px; color: #94a3b8;">Nuevas ✨</div>
+                                </div>
+                                <div>
+                                    <div style="color: #ef4444; font-size: 20px; font-weight: bold;">${comparison.exitedEntries.length}</div>
+                                    <div style="font-size: 11px; color: #94a3b8;">Salidas ❌</div>
+                                </div>
+                                <div>
+                                    <div style="color: #60a5fa; font-size: 20px; font-weight: bold;">${comparison.improved.length + comparison.declined.length}</div>
+                                    <div style="font-size: 11px; color: #94a3b8;">Cambios 📊</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            ${comparison.newEntries.length > 0 ? `
+                                <h3 style="color: #4ade80; margin: 15px 0 10px 0;">✨ NUEVAS (${comparison.newEntries.length})</h3>
+                                ${comparison.newEntries.map(c => `
+                                    <div class="company-card">
+                                        <div class="company-header">
+                                            <span class="ticker">${c.ticker}</span>
+                                            <span style="color: #4ade80;">NUEVA</span>
+                                        </div>
+                                        <div class="company-name">${c.name}</div>
+                                    </div>
+                                `).join('')}
+                            ` : ''}
+
+                            ${comparison.improved.length > 0 ? `
+                                <h3 style="color: #60a5fa; margin: 15px 0 10px 0;">🔼 MEJORARON (${comparison.improved.length})</h3>
+                                ${comparison.improved.map(c => `
+                                    <div class="company-card">
+                                        <div class="company-header">
+                                            <span class="ticker">${c.ticker}</span>
+                                            <span style="color: #60a5fa;">+${c.scoreDiff}%</span>
+                                        </div>
+                                        <div class="company-name">${c.name}</div>
+                                    </div>
+                                `).join('')}
+                            ` : ''}
+
+                            ${comparison.declined.length > 0 ? `
+                                <h3 style="color: #fbbf24; margin: 15px 0 10px 0;">🔽 EMPEORARON (${comparison.declined.length})</h3>
+                                ${comparison.declined.map(c => `
+                                    <div class="company-card">
+                                        <div class="company-header">
+                                            <span class="ticker">${c.ticker}</span>
+                                            <span style="color: #fbbf24;">${c.scoreDiff}%</span>
+                                        </div>
+                                        <div class="company-name">${c.name}</div>
+                                    </div>
+                                `).join('')}
+                            ` : ''}
+
+                            ${comparison.exitedEntries.length > 0 ? `
+                                <h3 style="color: #ef4444; margin: 15px 0 10px 0;">❌ SALIDAS (${comparison.exitedEntries.length})</h3>
+                                ${comparison.exitedEntries.map(c => `
+                                    <div class="company-card">
+                                        <div class="company-header">
+                                            <span class="ticker">${c.ticker}</span>
+                                            <span style="color: #ef4444;">SALIÓ</span>
+                                        </div>
+                                        <div class="company-name">${c.name}</div>
+                                    </div>
+                                `).join('')}
+                            ` : ''}
+                        </div>
+
+                        <button onclick="showHistory('${market}')" style="margin-top: 20px;">← Volver al historial</button>
+                        <button onclick="showStart()" style="margin-top: 10px;">← Inicio</button>
+                    </div>
+                `;
+
+                document.getElementById('app').innerHTML = html;
+            } catch (error) {
+                console.error('Error comparando:', error);
+                alert('Error al comparar: ' + error);
+            }
+        };
+
+        async function loadData() {
+            try {
+                const response = await fetch('./data.json');
+                window.appData = await response.json();
+                showStart();
+            } catch (error) {
+                document.getElementById('app').innerHTML = `
+                    <div class="container">
+                        <h1 style="color: #ef4444;">❌ Error</h1>
+                        <p>${error.message}</p>
+                        <button onclick="location.reload()">Recargar</button>
+                    </div>
+                `;
+            }
+        }
+
+        loadData();
+
+        // Registrar Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then((registration) => {
+                    console.log('[App] Service Worker registered successfully:', registration.scope);
+
+                    // Escuchar actualizaciones disponibles
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                console.log('[App] New version available');
+                                // Aquí podrías mostrar un banner al usuario
+                            }
+                        });
+                    });
+                })
+                .catch((error) => {
+                    console.error('[App] Service Worker registration failed:', error);
+                });
+
+            // Permitir actualizar a nueva versión cuando esté disponible
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+        }
+    </script>
+
+    <!-- MEJORA #8: Estrategias de Inversión (Graham, Lynch, Buffett) - Cargadas al final para asegurar appData -->
+    <script src="level2.3-handler.js"></script>
+    <script src="level2.7-handler.js"></script>
+    <script src="level3.5-handler.js"></script>
+</body>
+</html>

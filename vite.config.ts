@@ -4,13 +4,14 @@ import fs from 'fs'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [],
   root: 'public',
   server: {
     port: 3000,
     host: 'localhost',
     open: false,
     middlewareMode: false,
+    hmr: false,
     fs: {
       allow: ['..']
     }

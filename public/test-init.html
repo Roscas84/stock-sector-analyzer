@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Init</title><style>body{background:#0f172a;color:white;font-family:monospace;padding:20px}</style></head>
+<body>
+<h1>🔍 Diagnóstico de Inicialización</h1>
+<div id="log"></div>
+
+<script src="level2.7-handler.js"></script>
+
+<script>
+function addLog(msg, type = 'info') {
+  const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'yellow';
+  const html = `<p style="color: ${color};">${msg}</p>`;
+  document.getElementById('log').innerHTML += html;
+  console.log(msg);
+}
+
+addLog('1️⃣ Script cargado, iniciando...');
+
+addLog('2️⃣ Comprobando si window.appData existe: ' + (window.appData === undefined ? 'UNDEFINED' : 'EXISTE'));
+
+async function test() {
+  addLog('3️⃣ Iniciando fetch de data.json...');
+
+  try {
+    const response = await fetch('./data.json');
+    addLog(`4️⃣ Fetch respondió con status: ${response.status}`, response.ok ? 'success' : 'error');
+
+    if (!response.ok) {
+      addLog(`❌ HTTP Error: ${response.status}`, 'error');
+      return;
+    }
+
+    const data = await response.json();
+    addLog(`5️⃣ JSON parseado, mercados: ${Object.keys(data.markets).join(', ')}`, 'success');
+
+    window.appData = data;
+    addLog(`6️⃣ window.appData asignado`, 'success');
+    addLog(`7️⃣ window.appData.markets.USA.companies.length = ${window.appData.markets.USA.companies.length}`, 'success');
+
+    // Test function
+    if (typeof window.showLynchAnalysis === 'function') {
+      addLog(`8️⃣ showLynchAnalysis existe como función`, 'success');
+    } else {
+      addLog(`8️⃣ showLynchAnalysis NO existe (${typeof window.showLynchAnalysis})`, 'error');
+    }
+
+  } catch (error) {
+    addLog(`❌ Error: ${error.message}`, 'error');
+    addLog(`Stack: ${error.stack}`, 'error');
+  }
+}
+
+test();
+</script>
+</body>
+</html>

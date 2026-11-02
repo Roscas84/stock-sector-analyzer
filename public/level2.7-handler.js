@@ -6,10 +6,37 @@
 window.evaluateLynchScore = function(company) {
   const growth = company.revenueGrowthYoY || 0;
   const pe = company.peRatio || 0;
+  const margin = company.netProfitMargin || 0;
+  const fcf = company.freeCashFlow || 0;
   const peg = growth > 0 ? pe / growth : 999;
 
   let signal = "❌ EVITA";
   let score = 0;
+
+  // ZOOM FILTER: Rechazar empresas sin datos mínimos
+  const hasValidPE = company.hasOwnProperty('peRatio') && pe > 0 && pe < 1000;
+  const hasValidGrowth = company.hasOwnProperty('revenueGrowthYoY') && growth !== null;
+
+  if (!hasValidPE || !hasValidGrowth) {
+    return {
+      growth,
+      peRatio: pe,
+      pegRatio: peg,
+      signal: "⚪ SIN DATOS SUFICIENTES",
+      score: 0
+    };
+  }
+
+  // FILTER: Excluir empresas sin fundamentals
+  if (fcf <= 0 && pe <= 0) {
+    return {
+      growth,
+      peRatio: pe,
+      pegRatio: peg,
+      signal: "❌ SIN FUNDAMENTALS",
+      score: 0
+    };
+  }
 
   if (growth < 5) {
     signal = "🐢 LENTO";
@@ -53,13 +80,13 @@ window.evaluateLynchScore = function(company) {
 };
 
 window.showLynchAnalysis = function(market) {
-  if (!appData || !appData.markets || !appData.markets[market]) {
+  if (!window.appData || !window.appData.markets || !window.appData.markets[market]) {
     document.getElementById('app').innerHTML = `<div class="container"><h1>❌ Sin datos</h1></div>`;
     return;
   }
 
-  currentMarket = market;
-  const companies = appData.markets[market].companies
+  window.currentMarket = market;
+  const companies = window.appData.markets[market].companies
     .map(c => ({ ...c, lynch: evaluateLynchScore(c) }))
     .filter(c => c.lynch.growth > 5)
     .sort((a, b) => b.lynch.score - a.lynch.score);

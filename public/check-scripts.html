@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Script Loader Checker</title>
+    <style>
+        body { background: #0f172a; color: white; font-family: monospace; padding: 20px; }
+        .box { background: #1e293b; padding: 15px; margin: 10px 0; border-radius: 6px; }
+        .loaded { border-left: 3px solid #4ade80; }
+        .failed { border-left: 3px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>📋 Script Loading Check</h1>
+    <div id="results"></div>
+
+    <script>
+        function addResult(script, loaded) {
+            const className = loaded ? 'loaded' : 'failed';
+            const icon = loaded ? '✅' : '❌';
+            document.getElementById('results').innerHTML += `
+                <div class="box ${className}">
+                    <p>${icon} ${script}</p>
+                </div>
+            `;
+        }
+
+        // Try loading each script
+        const scripts = [
+            'db-manager.js',
+            'history-handler.js',
+            'export-handler.js',
+            'level2.5-handler.js',
+            'level2.3-handler.js',
+            'level2.7-handler.js',
+            'level3.5-handler.js'
+        ];
+
+        scripts.forEach((script, index) => {
+            const tag = document.createElement('script');
+            tag.src = script;
+            tag.onload = () => {
+                console.log(`✅ ${script} cargado`);
+                addResult(script, true);
+
+                // Check if function exists
+                if (script === 'level2.7-handler.js') {
+                    setTimeout(() => {
+                        const exists = typeof window.showLynchAnalysis === 'function';
+                        document.getElementById('results').innerHTML += `
+                            <div class="box ${exists ? 'loaded' : 'failed'}">
+                                <p>${exists ? '✅' : '❌'} showLynchAnalysis = ${typeof window.showLynchAnalysis}</p>
+                            </div>
+                        `;
+                    }, 100);
+                }
+            };
+            tag.onerror = () => {
+                console.error(`❌ Error loading ${script}`);
+                addResult(script, false);
+            };
+            document.head.appendChild(tag);
+        });
+    </script>
+</body>
+</html>

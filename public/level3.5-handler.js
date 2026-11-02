@@ -12,6 +12,36 @@ window.evaluateBuffettScore = function(company) {
   const moat = company.moatScore || 0;
   const management = company.managementScore || 0;
   const cycle = company.businessCycle || "STABLE";
+  const margin = company.netProfitMargin || 0;
+  const fcf = company.freeCashFlow || 0;
+
+  // ZOOM FILTER: Datos mínimos para Buffett
+  const hasValidMoat = company.hasOwnProperty('moatScore') && moat >= 0 && moat <= 100;
+  const hasValidMgmt = company.hasOwnProperty('managementScore') && management >= 0 && management <= 100;
+
+  if (!hasValidMoat || !hasValidMgmt) {
+    return {
+      moatScore: moat,
+      managementScore: management,
+      businessCycle: cycle,
+      buffettScore: 0,
+      recommendation: "⚪ DATOS INCOMPLETOS",
+      signal: "gray"
+    };
+  }
+
+  // FILTER: Buffett necesita MOAT + MANAGEMENT
+  // Rechaza si ambos son muy bajos (< 30)
+  if (moat < 30 && management < 30) {
+    return {
+      moatScore: moat,
+      managementScore: management,
+      businessCycle: cycle,
+      buffettScore: 0,
+      recommendation: "❌ SIN VENTAJA COMPETITIVA",
+      signal: "red"
+    };
+  }
 
   // Buffett Score = promedio ponderado
   // Moat 40% (lo más importante para Buffett)
@@ -59,7 +89,7 @@ function getCycleScore(cycle) {
 }
 
 window.showBuffettAnalysis = function(market) {
-  if (!appData || !appData.markets || !appData.markets[market]) {
+  if (!window.appData || !window.appData.markets || !window.appData.markets[market]) {
     document.getElementById('app').innerHTML = `
       <div class="container">
         <h1 style="color: #ef4444;">❌ Sin datos</h1>
@@ -69,8 +99,8 @@ window.showBuffettAnalysis = function(market) {
     return;
   }
 
-  currentMarket = market;
-  const companies = appData.markets[market].companies;
+  window.currentMarket = market;
+  const companies = window.appData.markets[market].companies;
 
   // Evaluar a todos y ordenar por Buffett Score
   const analyzed = companies
