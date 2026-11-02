@@ -1,22 +1,6 @@
 import { useState } from 'react';
 import { Company } from '../types/index';
 
-interface YahooQuote {
-  symbol: string;
-  longName: string;
-  sector: string;
-  debtToEquity?: number;
-  netIncomeToCommon?: number;
-  totalRevenue?: number;
-  priceBook?: number;
-  currentRatio?: number;
-  trailingPE?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
-  currentPrice?: number;
-  dividendYield?: number;
-}
-
 export function useYahooFinance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

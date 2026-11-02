@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Company, SectorAnalysis, UserPreferences } from '../types/index';
+import { SectorAnalysis, UserPreferences } from '../types/index';
 
 interface DBSchema {
   analyses: SectorAnalysis & { key: string };
