@@ -4,11 +4,11 @@ import fs from 'fs'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [],
+  plugins: [react()],
   root: 'public',
   server: {
     port: 3000,
-    host: 'localhost',
+    host: '0.0.0.0',
     open: false,
     middlewareMode: false,
     hmr: false,
@@ -21,4 +21,8 @@ export default defineConfig({
     sourcemap: false,
     emptyOutDir: true,
   },
+  preview: {
+    port: 3000,
+    host: '0.0.0.0'
+  }
 })
