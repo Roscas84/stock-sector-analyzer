@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SectorAnalysis, UserPreferences } from '../types/index';
 
-interface DBSchema {
-  analyses: SectorAnalysis & { key: string };
-  favorites: { ticker: string; timestamp: string };
-  userNotes: { ticker: string; note: string };
-  preferences: UserPreferences;
-}
-
 export function useIndexedDB() {
   const [db, setDb] = useState<IDBDatabase | null>(null);
   const [ready, setReady] = useState(false);
